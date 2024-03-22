@@ -1,0 +1,1 @@
+PROJ_LIST = "D:\项目\github\dsim\env\proj_cfg.yaml"
