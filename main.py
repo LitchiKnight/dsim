@@ -1,17 +1,22 @@
 import argparse
-from rich.console import Console
-from init.create_ws import create_work_space
+from command.router import Router
 
-arg_parser = argparse.ArgumentParser(description='Datang Digital Verification Simulation tool')
-console    = Console()
+def create_parser() -> argparse.ArgumentParser:
+  arg_parser = argparse.ArgumentParser(description='Automatic Digitial Verification Simulation Tool')
+  sub_parser = arg_parser.add_subparsers()
+  router     = Router()
 
-def main():
-  arg_parser.add_argument('-cws', type=str, help="create work space")
+  init = sub_parser.add_parser("init")
+  init.add_argument("project", type=str, help="target project name")
+  init.add_argument("-f", "--force", action="store_true", help="force to initiate work space")
+  init.add_argument("-t", "--tool", type=str, default="git", help="version control tool")
+  init.set_defaults(func = router.do_init)
 
-  args = arg_parser.parse_args()
+  return arg_parser
 
-  if args.cws:
-    module = args.cws
-    create_work_space(module)
+def main() -> None:
+  parser = create_parser()
+  args   = parser.parse_args()
+  args.func(args)
 
 main()

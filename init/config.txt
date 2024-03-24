@@ -1,4 +1,0 @@
-svn_addr=https://192.9.100.230/svn/tj2305a_l
-disk=raid73
-project=tj2305
-department=digital_verify
