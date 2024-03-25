@@ -1,3 +1,4 @@
+import os
 import sys
 import time
 from rich.console import Console
@@ -33,3 +34,15 @@ class Base:
         return func(*args)
       except Exception as e:
         Base.error(e)
+
+  @classmethod
+  def dict2dir(self, base: any, template: dict) -> None:
+    for k, v in template.items():
+      path = os.path.join(base, k)
+      if isinstance(v, dict):
+        self.dict2dir(path, v)
+      elif isinstance(v, list):
+        os.makedirs(path, exist_ok=True)
+        for f_n in v:
+          f = open(os.path.join(path, f_n), "w")
+          f.close()

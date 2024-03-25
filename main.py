@@ -1,5 +1,4 @@
 import argparse
-from common.base import Base
 from command.router import Router
 
 def create_parser() -> argparse.ArgumentParser:
@@ -18,6 +17,16 @@ def create_parser() -> argparse.ArgumentParser:
   add.add_argument("-p", "--project", type=str, required=True, help="target project name")
   add.add_argument("-m", "--module", type=str, required=True, help="target module name")
   add.set_defaults(func = router.do_add)
+
+  remove = sub_parser.add_parser("remove")
+  remove.add_argument("-p", "--project", type=str, required=True, help="target project name")
+  remove.add_argument("-m", "--module", type=str, required=True, help="target module name")
+  remove.set_defaults(func = router.do_remove)
+
+  _list = sub_parser.add_parser("list")
+  _list.add_argument("-p", "--project", type=str, required=True, help="target project name")
+  _list.add_argument("-m", "--module", type=str, nargs="+", help="target module name")
+  _list.set_defaults(func = router.do_list)
 
   return arg_parser
 

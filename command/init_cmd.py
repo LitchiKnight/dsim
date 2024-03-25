@@ -23,7 +23,7 @@ class InitCmd:
       Base.info(f"create new work space at {w_p}")
       return True
     else:
-      Base.warning(f"work space {w_p} already exists")
+      Base.warning(f"{self.args.project} already exists at {w_p}")
       return False
 
   def pull_from_git(self) -> None:
