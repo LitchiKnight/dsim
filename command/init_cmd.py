@@ -50,7 +50,8 @@ class InitCmd:
 
   def run(self) -> None:
     if self.init_work_path():
-      self.pull_remote_repo()
+      if not self.args.no_pull:
+        self.pull_remote_repo()
 
   def show(self) -> None:
     Base.print(self.args)

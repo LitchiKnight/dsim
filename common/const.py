@@ -1,1 +1,0 @@
-PROJ_LIST = "proj_list.yaml"

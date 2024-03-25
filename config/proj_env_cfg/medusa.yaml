@@ -1,0 +1,7 @@
+git_repo: https://github.com/LitchiKnight/UVM_register_model_best_practice.git
+svn_repo: https://192.168.100.230/svn/medusa
+WORK_PATH: D:\work_space\{user}\medusa
+RTL_PATH: D:\work_space\{user}\medusa\digital_fe\src
+TB_PATH : D:\work_space\{user}\medusa\digital_verify
+SIM_PATH: D:\sim_space\{user}\medusa\result
+UVM_HOME: D:\uvm_home\{user}\uvm-1.1d

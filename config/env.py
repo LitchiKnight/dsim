@@ -1,35 +1,44 @@
 import os
 import yaml
-from common.const import *
+import getpass
 from common.base import Base
 from config.proj_item import ProjItem
 
 class Env:
-  _proj_dict = None
-
   def __init__(self) -> None:
     pass
 
   @classmethod
   def get_proj(self, name: str) -> ProjItem:
-    if (Env._proj_dict == None):
-      proj_list_file = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        PROJ_LIST
-      )
-      try:
-        with open(proj_list_file, mode="r", encoding="utf-8") as f:
-          Env._proj_dict = yaml.load(f.read(), Loader=yaml.FullLoader)
-      except Exception as e:
-        Base.error(e)
-    if (name in Env._proj_dict.keys()):
-      user     = "TODO"
-      p_i      = ProjItem()
-      p_i.name = name
-      for (k, v) in Env._proj_dict[name].items():
-        if ("<user>" in v):
-          v = v.replace("<user>", user)
-        p_i.__setattr__(k, v)
-      return p_i
-    else:
-      Base.error(f"No such project {name}, please check!")
+    proj_list_file = os.path.join(
+      os.path.dirname(os.path.abspath(__file__)), "proj_env_cfg", f"{name}.yaml"
+    )
+
+    try:
+      with open(proj_list_file, mode="r", encoding="utf-8") as f:
+        content = f.read().format(user = getpass.getuser())
+        proj_cfg = yaml.load(content, Loader=yaml.FullLoader)
+    except FileNotFoundError:
+      Base.error(f"No such project")
+    except Exception as e:
+      Base.error(e)
+
+    p_i = ProjItem(name)
+    for k, v in proj_cfg.items():
+      p_i.__setattr__(k, v)
+    return p_i
+
+  @classmethod
+  def get_work_dir(self, module: str) -> dict:
+    dir_cfg = os.path.join(
+      os.path.dirname(os.path.abspath(__file__)), "dir_struct", "work.yaml"
+    )
+
+    try:
+      with open(dir_cfg, mode="r", encoding="utf-8") as f:
+        content = f.read().format(module = module)
+        dir = yaml.load(content, Loader=yaml.FullLoader)
+    except Exception as e:
+      Base.error(e)
+    return dir
+    
