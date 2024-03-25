@@ -1,6 +1,6 @@
 from common.base import Base
 
-class ProjItem:
+class Project:
   def __init__(self, name: str) -> None:
     self.name = name
 
