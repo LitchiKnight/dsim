@@ -1,7 +1,7 @@
-from command.init_cmd import InitCmd
-from command.add_cmd import AddCmd
-from command.remove_cmd import RemoveCmd
-from command.list_cmd import ListCmd
+from command.init import InitCmd
+from command.add import AddCmd
+from command.remove import RemoveCmd
+from command.list import ListCmd
 
 class Router:
   def __init__(self) -> None:

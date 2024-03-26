@@ -1,7 +1,7 @@
 import os
 import yaml
 import getpass
-from common.base import Base
+from common.utils import Utils
 from data.project import Project
 
 class Env:
@@ -19,9 +19,9 @@ class Env:
         content = f.read().format(user = getpass.getuser())
         proj_cfg = yaml.load(content, Loader=yaml.FullLoader)
     except FileNotFoundError:
-      Base.error(f"No such project")
+      Utils.error(f"No such project")
     except Exception as e:
-      Base.error(e)
+      Utils.error(e)
 
     p = Project(name)
     for k, v in proj_cfg.items():
@@ -39,6 +39,6 @@ class Env:
         content = f.read().format(module = module)
         dir = yaml.load(content, Loader=yaml.FullLoader)
     except Exception as e:
-      Base.error(e)
+      Utils.error(e)
     return dir
     

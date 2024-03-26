@@ -1,8 +1,8 @@
-import argparse
-from command.router import Router
+from argparse import ArgumentParser
+from common.router import Router
 
-def create_parser() -> argparse.ArgumentParser:
-  arg_parser = argparse.ArgumentParser(description='Automatic Digitial Verification Simulation Tool')
+def create_parser() -> ArgumentParser:
+  arg_parser = ArgumentParser(description='Automatic Digitial Verification Simulation Tool')
   sub_parser = arg_parser.add_subparsers()
   router     = Router()
 

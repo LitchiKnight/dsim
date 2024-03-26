@@ -1,4 +1,4 @@
-from common.base import Base
+from common.utils import Utils
 
 class TestCase:
   def __init__(self, name: str) -> None:
