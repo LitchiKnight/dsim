@@ -12,3 +12,4 @@ class TestCase:
       return False
     if len(self.seed) != 2 or self.seed[0] > self.seed[1]:
       return False
+    return True
