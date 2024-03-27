@@ -13,3 +13,6 @@ class TestCase:
     if len(self.seed) != 2 or self.seed[0] > self.seed[1]:
       return False
     return True
+  
+  def show(self) -> None:
+    Utils.print(vars(self))

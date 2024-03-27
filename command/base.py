@@ -23,3 +23,6 @@ class BaseCmd:
           Utils.error(f"initialize {self.proj.name} project first")
         func(self, *args, **kwargs)
     return wrapper
+
+  def show_args(self) -> None:
+    Utils.print(self.args)

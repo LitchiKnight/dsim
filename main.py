@@ -15,12 +15,12 @@ def create_parser() -> ArgumentParser:
 
   add = sub_parser.add_parser("add")
   add.add_argument("-p", "--project", type=str, required=True, help="target project name")
-  add.add_argument("-m", "--module", type=str, required=True, help="target module name")
+  add.add_argument("-m", "--module", type=str, required=True, nargs="+", help="target module name")
   add.set_defaults(func = router.do_add)
 
   remove = sub_parser.add_parser("remove")
   remove.add_argument("-p", "--project", type=str, required=True, help="target project name")
-  remove.add_argument("-m", "--module", type=str, required=True, help="target module name")
+  remove.add_argument("-m", "--module", type=str, nargs="+", help="target module name")
   remove.set_defaults(func = router.do_remove)
 
   _list = sub_parser.add_parser("list")

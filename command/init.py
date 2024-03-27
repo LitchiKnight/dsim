@@ -10,18 +10,19 @@ class InitCmd(BaseCmd):
     super().__init__(args)
 
   def init_work_path(self) -> bool:
+    project = self.proj.name
     w_p = self.proj.WORK_PATH
     if self.args.force:
       shutil.rmtree(w_p, ignore_errors=True)
       if os.path.exists(w_p):
-        Utils.error(f"Unable removed {self.proj.name} project directory")
-      Utils.info("delete work space existing files or directories")
+        Utils.error(f"Unable to remove {project} project")
+      Utils.info(f"Deleted {project} existing work space")
     if not os.path.exists(w_p):
       os.makedirs(w_p)
-      Utils.info(f"create new work space at {w_p}")
+      Utils.info(f"Create new work space for {project} at {w_p}")
       return True
     else:
-      Utils.warning(f"{self.proj.name} already exists at {w_p}")
+      Utils.warning(f"{project} already exists at {w_p}")
       return False
 
   def pull_from_git(self) -> None:
@@ -44,12 +45,9 @@ class InitCmd(BaseCmd):
       self.pull_from_git()
     elif self.args.tool == "svn":
       self.pull_from_svn()
-    Utils.info(f"pull remote repository from {self.proj.git_repo}")
+    Utils.info(f"Pull remote repository from {self.proj.git_repo}")
 
   def run(self) -> None:
     if self.init_work_path():
       if not self.args.no_pull:
         self.pull_remote_repo()
-
-  def show(self) -> None:
-    Utils.print(self.args)
