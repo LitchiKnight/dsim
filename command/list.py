@@ -44,7 +44,7 @@ class ListCmd(BaseCmd):
         self.show_tc_lst(v, level+1)
     elif isinstance(tc_lst, list):
       if len(tc_lst) == 0:
-        Utils.print(f"{indent}empty list")
+        Utils.print(f"{indent}empty")
       else:
         for item in tc_lst:
           self.show_tc_lst(item, level)
@@ -55,5 +55,6 @@ class ListCmd(BaseCmd):
   def run(self) -> None:
     m_l = self.get_module_list()
     for m in m_l:
+      tc_lst = Utils.run_with_animation(f"Searching {m} testcase...", self.get_tc_lst, m)
       Utils.info(f"{m} testcase list below")
-      self.show_tc_lst(self.get_tc_lst(m), 0)
+      self.show_tc_lst(tc_lst, 0)
