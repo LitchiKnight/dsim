@@ -24,7 +24,7 @@ class RemoveCmd(BaseCmd):
         Utils.error(f"Unable to remove {module} from {project}")
       Utils.info(f"Removed {module} from {project}")
     else:
-      Utils.error(f"No such {module} module at {project}")
+      Utils.error(f"No such module: {module}")
 
   @BaseCmd.check_env
   def run(self) -> None:

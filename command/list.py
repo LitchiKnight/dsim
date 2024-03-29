@@ -20,36 +20,45 @@ class ListCmd(BaseCmd):
         if self.has_module(module):
           m_l.append(module)
         else:
-          Utils.error(f"{module} module does not exists in {self.proj.name}")
+          Utils.error(f"No such module: {module}")
     return m_l
   
   def get_tc_lst(self, module: str) -> dict:
-    tc_lst_d = {module: []}
-    tc_lst_pat = os.path.join(self.proj.TB_PATH, module, TC_LST_DIR, "*.lst")
-    f_l = glob.glob(tc_lst_pat)
+    tc_lst = []
+    f_l    = []
+    if self.args.list == None:
+      tc_lst_pat = os.path.join(self.proj.TB_PATH, module, TC_LST_DIR, "*.lst")
+      f_l = glob.glob(tc_lst_pat)
+    else:
+      for f in self.args.list:
+        f_abs_p = os.path.join(self.proj.TB_PATH, module, TC_LST_DIR, f)
+        if not os.path.exists(f_abs_p):
+          Utils.error(f"No such file: {f}")
+        if os.path.splitext(f)[1] != ".lst":
+          Utils.error(f"Unrecognized file: {f}")
+        else:
+          f_l.append(os.path.join(self.proj.TB_PATH, module, TC_LST_DIR, f))
     for f in f_l:
       f_n = os.path.basename(f)
-      tc_lst = self.tclparser.parse_list(f)
-      tc_lst_d[module].append({f_n: tc_lst})
-    return tc_lst_d
+      tc_lst.append({f_n: self.tclparser.parse_list(f)})
+    return {module: tc_lst}
 
-  def tc_content(self, tc: TestCase) -> str:
-    return f"{tc.name} {tc.seed}"
-
-  def show_tc_lst(self, tc_lst: any, level: int) -> None:
-    indent = "\t"*level
+  def show_tc_lst(self, tc_lst: any, level: int = 0, is_last: bool = False, pre_indent: str = "") -> None:
+    indent = pre_indent
+    if level > 0:
+      indent += "└── " if is_last else "├── "
     if isinstance(tc_lst, dict):
-      for k, v in tc_lst.items():
-        Utils.print(f"{indent}{k}:")
-        self.show_tc_lst(v, level+1)
+      for i, (k, v) in enumerate(tc_lst.items()):
+        Utils.print(f"{indent}{k}")
+        if level > 0:
+          pre_indent += "    " if is_last else "│   "
+        self.show_tc_lst(v, level+1, (len(tc_lst)-1) == i, pre_indent)
     elif isinstance(tc_lst, list):
-      if len(tc_lst) == 0:
-        Utils.print(f"{indent}empty")
-      else:
-        for item in tc_lst:
-          self.show_tc_lst(item, level)
+      if len(tc_lst) > 0:
+        for i, item in enumerate(tc_lst):
+          self.show_tc_lst(item, level, (len(tc_lst)-1) == i, pre_indent)
     elif isinstance(tc_lst, TestCase):
-      Utils.print(f"{indent}{self.tc_content(tc_lst)}")
+      Utils.print(f"{indent}{tc_lst.name}")
 
   @BaseCmd.check_env
   def run(self) -> None:
@@ -57,4 +66,4 @@ class ListCmd(BaseCmd):
     for m in m_l:
       tc_lst = Utils.run_with_animation(f"Searching {m} testcase...", self.get_tc_lst, m)
       Utils.info(f"{m} testcase list below")
-      self.show_tc_lst(tc_lst, 0)
+      self.show_tc_lst(tc_lst)

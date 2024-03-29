@@ -19,7 +19,7 @@ class Env:
         content = f.read().format(user = getpass.getuser())
         proj_cfg = yaml.load(content, Loader=yaml.FullLoader)
     except FileNotFoundError:
-      Utils.error(f"No such project")
+      Utils.error(f"No such project: {name}")
     except Exception as e:
       Utils.error(e)
 

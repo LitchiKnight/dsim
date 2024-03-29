@@ -26,6 +26,7 @@ def create_parser() -> ArgumentParser:
   _list = sub_parser.add_parser("list")
   _list.add_argument("-p", "--project", type=str, required=True, help="target project name")
   _list.add_argument("-m", "--module", type=str, nargs="+", help="target module name")
+  _list.add_argument("-l", "--list", type=str, nargs="+", help="target testcase list name")
   _list.set_defaults(func = router.do_list)
 
   return arg_parser
