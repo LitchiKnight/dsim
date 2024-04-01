@@ -41,9 +41,9 @@ class InitCmd(BaseCmd):
       Utils.error("SVN is not installed")
     
   def pull_remote_repo(self) -> None:
-    if self.args.tool == "git":
+    if self.args.VCS == "git":
       self.pull_from_git()
-    elif self.args.tool == "svn":
+    elif self.args.VCS == "svn":
       self.pull_from_svn()
     Utils.info(f"Pull remote repository from {self.proj.git_repo}")
 

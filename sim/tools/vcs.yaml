@@ -1,0 +1,19 @@
+compile:
+  cmd:
+    - "vcs -file <cwd>/vcs.compile.option.f
+           +incdir+<setting>
+           +incdir+<user_extension>
+           +vcs+lic+wait
+           -f <cwd>/files.f -full64
+           -l <out>/compile.log
+           -LDFLAGS '-Wl,--no-as-needed'
+           -CFLAGS '--std=c99 -fno-extended-identifiers'
+           -Mdir=<out>/vcs_simv.csrc
+           -o <out>/vcs_simv <cmp_opts> <cov_opts> "
+  cov_opts: >
+    -cm_dir <out>/test.vdb
+sim:
+  cmd: >
+    <out>/vcs_simv +vcs+lic+wait <sim_opts> +ntb_random_seed=<seed> <cov_opts>
+  cov_opts: >
+    -cm_dir <out>/test.vdb -cm_log /dev/null -cm_name test_<seed>_<test_id>

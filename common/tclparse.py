@@ -5,7 +5,8 @@ from data.testcase import TestCase
 
 class TestCaseListParser:
   def __init__(self) -> None:
-    pass
+    self._global = ""
+    self.seed    = []
 
   def is_comment(self, line: str) -> bool:
     return not(re.match("^//", line) == None)
@@ -43,11 +44,13 @@ class TestCaseListParser:
     for item in cont_l[2:]:
       tc.plusarg += f" {item}"
     return tc
-
-  def parse_list(self, file: any, inc_en: bool = False) -> list:
-    tc_lst       = []
+  
+  def reset_property(self) -> None:
     self._global = ""
     self.seed    = []
+
+  def parse_list(self, file: any, inc_en: bool = False) -> list:
+    tc_lst = []
     with open(file, mode="r", encoding="utf-8") as f:
       for line in f:
         line = line.strip()
@@ -66,4 +69,5 @@ class TestCaseListParser:
         elif self.is_testcase(line):
           tc = self.parse_testcase(line)
           tc_lst.append(tc)
+    self.reset_property()
     return tc_lst

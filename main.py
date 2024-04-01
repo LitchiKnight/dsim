@@ -9,7 +9,7 @@ def create_parser() -> ArgumentParser:
   init = sub_parser.add_parser("init")
   init.add_argument("-p", "--project", type=str, required=True, help="target project name")
   init.add_argument("-f", "--force", action="store_true", help="force to initiate work space")
-  init.add_argument("-t", "--tool", type=str, default="git", help="version control tool")
+  init.add_argument("--VCS", type=str, default="git", help="version control system")
   init.add_argument("--no-pull", action="store_true", help="initiate project work space without pull remote repository")
   init.set_defaults(func = router.do_init)
 

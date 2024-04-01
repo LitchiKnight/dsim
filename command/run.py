@@ -1,4 +1,6 @@
 import os
+import re
+import copy
 from common.const import *
 from config.env import Env
 from common.utils import Utils
@@ -17,12 +19,22 @@ class RunCmd(BaseCmd):
 
   def run(self) -> None:
     tc_lst = self.get_tc_lst()
+    tc_pool = []
     if self.args.testcase:
-      print(self.args.testcase)
+      tc_tpl_n = re.sub("_[0-9]+$", "_@seed", self.args.testcase)
+      for tc in tc_lst:
+        if tc.name == tc_tpl_n:
+          tc_dup = copy.deepcopy(tc)
+          tc_dup.name = self.args.testcase
+          tc_dup.seed = re.search("[0-9]+$", self.args.testcase).group()
+          tc_pool.append(tc_dup)
     else:
-      pass
+      for tc in tc_lst:
+        for i in range(tc.seed[0], tc.seed[1]+1):
+          tc_dup = copy.deepcopy(tc)
+          tc_dup.name = re.sub("@seed", str(i), tc.name)
+          tc_dup.seed = i
+          tc_pool.append(tc_dup)
 
-    Utils.print(self.args)
-    # Utils.print(self.get_tc_lst())
-    for tc in tc_lst:
+    for tc in tc_pool:
       Utils.print(vars(tc))
