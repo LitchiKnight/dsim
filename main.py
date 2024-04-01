@@ -29,6 +29,13 @@ def create_parser() -> ArgumentParser:
   _list.add_argument("-l", "--list", type=str, nargs="+", help="target testcase list name")
   _list.set_defaults(func = router.do_list)
 
+  run = sub_parser.add_parser("run")
+  run.add_argument("-p" , "--project", type=str, required=True, help="target project name")
+  run.add_argument("-m" , "--module", type=str, required=True, help="target module name")
+  run.add_argument("-l" , "--list", type=str, required=True, help="target testcase list name")
+  run.add_argument("-tc", "--testcase", type=str, help="target testcase name")
+  run.set_defaults(func = router.do_run)
+
   return arg_parser
 
 def main() -> None:
@@ -36,4 +43,5 @@ def main() -> None:
   args = parser.parse_args()
   args.func(args)
 
-main()
+if __name__ == "__main__":
+  main()
