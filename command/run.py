@@ -33,7 +33,7 @@ class RunCmd(BaseCmd):
         for i in range(tc.seed[0], tc.seed[1]+1):
           tc_dup = copy.deepcopy(tc)
           tc_dup.name = re.sub("@seed", str(i), tc.name)
-          tc_dup.seed = i
+          tc_dup.seed = str(i)
           tc_pool.append(tc_dup)
 
     for tc in tc_pool:
