@@ -1,19 +1,48 @@
 compile:
   cmd:
-    - "vcs -file <cwd>/vcs.compile.option.f
-           +incdir+<setting>
-           +incdir+<user_extension>
-           +vcs+lic+wait
-           -f <cwd>/files.f -full64
-           -l <out>/compile.log
-           -LDFLAGS '-Wl,--no-as-needed'
-           -CFLAGS '--std=c99 -fno-extended-identifiers'
-           -Mdir=<out>/vcs_simv.csrc
-           -o <out>/vcs_simv <cmp_opts> <cov_opts> "
-  cov_opts: >
-    -cm_dir <out>/test.vdb
+    vcs -line
+        -timescale=1ns/10ps
+        -full64
+        -Mupdate
+        -Mdir=./object
+        -Mlib=./object
+        -debug_access+all+dmptf+pp+f+fn
+        -debug_region+cell+encrypt
+        -diag macro_values
+        -lca
+        -kdb
+        +define+ASSERT_ON+COVER_ON+SVA_CHECKER_INTERFACE
+        +neg_tchk
+        +no_lock_time
+        +vcs+lic+wait
+        -notice
+        +notimingcheck
+        +nospecify
+        +fsdb+autoflush
+        +v2k -sverilog
+        +lint=TFIPC-L
+        +libext+.v+.V+.sv+.svi
+        +systemverilogext+.sv+.svi
+        -l comp.log
+        -f <dut_f>
+        -f <c_f>
+        -f <tb_f>
+        -o <cmp_out>/simv
+        <cmp_opts>
+        <cov_opts>
+  cov_opts:
+    -cm line+cond+fsm+tgl+branch
+    -cm_tgl mda
+    -cm_tgl portsonly
+    -cm_cond full
+    -cm_dir <cmp_out>/simv.vdb
 sim:
-  cmd: >
-    <out>/vcs_simv +vcs+lic+wait <sim_opts> +ntb_random_seed=<seed> <cov_opts>
-  cov_opts: >
-    -cm_dir <out>/test.vdb -cm_log /dev/null -cm_name test_<seed>_<test_id>
+  cmd:
+    <cmp_out>/simv +vcs+lic+wait
+                   <sim_opts>
+                   +ntb_random_seed=<seed>
+                   <cov_opts>
+  cov_opts:
+    -cm_dir <sim_out>/<testcase>.vdb
+    -cm_log /dev/null
+    -cm_name <testcase>
