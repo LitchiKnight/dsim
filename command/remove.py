@@ -17,10 +17,9 @@ class RemoveCmd(BaseCmd):
 
   def remove_module(self, module: str) -> None:
     project = self.proj.name
-    m_p = os.path.join(self.proj.TB_PATH, module)
-    if os.path.exists(m_p):
-      Utils.run_with_animation(f"Removing {module} from {project}...", shutil.rmtree, m_p, True)
-      if os.path.exists(m_p):
+    if self.has_module(module):
+      Utils.run_with_animation(f"Removing {module} from {project}...", shutil.rmtree, self.get_module_path(module), True)
+      if self.has_module(module):
         Utils.error(f"Unable to remove {module} from {project}")
       Utils.info(f"Removed {module} from {project}")
     else:

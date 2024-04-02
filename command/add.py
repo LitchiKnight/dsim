@@ -10,10 +10,10 @@ class AddCmd(BaseCmd):
   def add_module(self, module: str) -> None:
     project = self.proj.name
     dir_template = Env.get_work_dir(module)
-    m_p = os.path.join(self.proj.TB_PATH, module)
-    if not os.path.exists(m_p):
+    m_p = self.get_module_path(module)
+    if not self.has_module(module):
       Utils.run_with_animation(f"Adding {module} to {project}...", Utils.dict2dir, m_p, dir_template)
-      if not os.path.exists(m_p):
+      if not self.has_module(module):
         Utils.error(f"Unable to create {module} module")
       Utils.info(f"Create directory for {module} at {m_p}")
     else:

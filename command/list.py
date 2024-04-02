@@ -11,7 +11,7 @@ class ListCmd(BaseCmd):
     super().__init__(args)
     self.tclparser = TestCaseListParser()
 
-  def get_module_list(self) -> list:
+  def get_modules(self) -> list:
     m_l = []
     if self.args.module == None:
       m_l = self.fetch_modules()
@@ -27,17 +27,15 @@ class ListCmd(BaseCmd):
     tc_lst = []
     f_l    = []
     if self.args.list == None:
-      tc_lst_pat = os.path.join(self.proj.TB_PATH, module, TC_LST_DIR, "*.lst")
-      f_l = glob.glob(tc_lst_pat)
+      f_l = glob.glob(self.get_list_path(module, "*.lst"))
     else:
       for f in self.args.list:
-        f_abs_p = os.path.join(self.proj.TB_PATH, module, TC_LST_DIR, f)
-        if not os.path.exists(f_abs_p):
+        if not self.has_list(module, f):
           Utils.error(f"No such file: {f}")
-        if os.path.splitext(f)[1] != ".lst":
+        elif os.path.splitext(f)[1] != ".lst":
           Utils.error(f"Unrecognized file: {f}")
         else:
-          f_l.append(os.path.join(self.proj.TB_PATH, module, TC_LST_DIR, f))
+          f_l.append(self.get_list_path(module, f))
     for f in f_l:
       f_n = os.path.basename(f)
       tc_lst.append({f_n: self.tclparser.parse_list(f)})
@@ -62,7 +60,7 @@ class ListCmd(BaseCmd):
 
   @BaseCmd.check_env
   def run(self) -> None:
-    m_l = self.get_module_list()
+    m_l = self.get_modules()
     for m in m_l:
       tc_lst = Utils.run_with_animation(f"Searching {m} testcase...", self.get_tc_lst, m)
       Utils.info(f"{m} testcase list below")
