@@ -8,15 +8,15 @@ class RemoveCmd(BaseCmd):
     super().__init__(args)
 
   def remove_project(self) -> None:
-    project = self.proj.name
-    w_p = self.proj.WORK_PATH
-    Utils.run_with_animation(f"Removing {project} project...", shutil.rmtree, w_p, True)
-    if os.path.exists(w_p):
+    project = self.args.project
+    work_path = self.env["WORK_PATH"]
+    Utils.run_with_animation(f"Removing {project} project...", shutil.rmtree, work_path, True)
+    if os.path.exists(work_path):
       Utils.error(f"Unable to remove {project} project")
     Utils.info(f"Removed {project} project")
 
   def remove_module(self, module: str) -> None:
-    project = self.proj.name
+    project = self.args.project
     if self.has_module(module):
       Utils.run_with_animation(f"Removing {module} from {project}...", shutil.rmtree, self.get_module_path(module), True)
       if self.has_module(module):

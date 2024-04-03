@@ -1,0 +1,6 @@
+- work_dir:
+    top: []
+    build:
+      file_lst: [<module>_sv.f, <module>_v.f, <module>_c.f]
+    tb: []
+    tc_lst: [mini.lst, full.lst]

@@ -1,5 +1,4 @@
 import os
-from config.env import Env
 from common.utils import Utils
 from command.base import BaseCmd
 
@@ -8,11 +7,11 @@ class AddCmd(BaseCmd):
     super().__init__(args)
 
   def add_module(self, module: str) -> None:
-    project = self.proj.name
-    dir_template = Env.get_work_dir(module)
+    project = self.args.project
+    template = self.config.get_work_dir(module)
     m_p = self.get_module_path(module)
     if not self.has_module(module):
-      Utils.run_with_animation(f"Adding {module} to {project}...", Utils.dict2dir, m_p, dir_template)
+      Utils.run_with_animation(f"Adding {module} to {project}...", Utils.dict2dir, m_p, template)
       if not self.has_module(module):
         Utils.error(f"Unable to create {module} module")
       Utils.info(f"Create directory for {module} at {m_p}")
