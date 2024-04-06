@@ -2,6 +2,7 @@ import os
 import re
 import copy
 import shutil
+import subprocess
 from common.const import *
 from common.utils import Utils
 from command.base import BaseCmd
@@ -30,15 +31,15 @@ class RunCmd(BaseCmd):
     tc_lst = self.get_tc_lst()
     tc_pool = []
     if self.args.testcase:
-      tc_tpl_n = re.sub("_[0-9]+$", "_@seed", self.args.testcase)
-      for tc in tc_lst:
-        if tc.name == tc_tpl_n:
-          tc_dup = copy.deepcopy(tc)
-          tc_dup.name = self.args.testcase
-          tc_dup.seed = re.search("[0-9]+$", self.args.testcase).group()
-          tc_pool.append(tc_dup)
+      if re.match(".*_[0-9]+$", self.args.testcase):
+        for tc in tc_lst:
+          if tc.name == re.sub("_[0-9]+$", "_@seed", self.args.testcase):
+            tc_dup = copy.deepcopy(tc)
+            tc_dup.name = self.args.testcase
+            tc_dup.seed = re.search("[0-9]+$", self.args.testcase).group()
+            tc_pool.append(tc_dup)
       if len(tc_pool) == 0:
-        Utils.error(f"Unrecognized testcase: {self.args.testcase}")
+        Utils.error(f"Can't find {self.args.testcase} in any testcase list")
     else:
       for tc in tc_lst:
         for i in range(tc.seed[0], tc.seed[1]+1):
@@ -48,22 +49,22 @@ class RunCmd(BaseCmd):
           tc_pool.append(tc_dup)
     return tc_pool
   
-  def get_vcs_cmd(self) -> tuple:
-    vcs_cmd      = self.config.get_simulator_cmd("vcs")
-    cmp_cmd_list = vcs_cmd["compile"]["cmd"]
-    sim_cmd      = vcs_cmd["sim"]["cmd"].strip()
-
-    for i, cmd in enumerate(cmp_cmd_list):
-      if ("cov_opts" in cmd) and self.args.coverage:
-        cmp_cmd_list[i] = cmd.replace("<cov_opts>", vcs_cmd["compile"]["cov_opts"])
+  def get_cmd(self) -> tuple:
+    cmd = self.config.get_simulator_cmd(self.args.simulator)
+    cmp_cmd_list = []
+    sim_cmd = ""
+    if self.args.simulator == "vcs":
+      cmp_cmd_list = cmd["compile"]["cmd"]
+      sim_cmd      = cmd["sim"]["cmd"].strip()
+      for i, cmp_cmd in enumerate(cmp_cmd_list):
+        if ("cov_opts" in cmp_cmd) and self.args.coverage:
+          cmp_cmd_list[i] = cmp_cmd.replace("<cov_opts>", cmd["compile"]["cov_opts"])
+        else:
+          cmp_cmd_list[i] = cmp_cmd.replace("<cov_opts>", "")
+      if ("cov_opts" in sim_cmd) and self.args.coverage:
+        sim_cmd = sim_cmd.replace("<cov_opts>", cmd["sim"]["cov_opts"])
       else:
-        cmp_cmd_list[i] = cmd.replace("<cov_opts>", "")
-
-    if ("cov_opts" in sim_cmd) and self.args.coverage:
-      sim_cmd = sim_cmd.replace("<cov_opts>", vcs_cmd["sim"]["cov_opts"])
-    else:
-      sim_cmd = sim_cmd.replace("<cov_opts>", "")
-    
+        sim_cmd = sim_cmd.replace("<cov_opts>", "")
     return cmp_cmd_list, sim_cmd
     
   def set_env_var(self) -> None:
@@ -73,28 +74,41 @@ class RunCmd(BaseCmd):
     os.environ["UVM_HOME"] = self.env["UVM_HOME"]
 
   def gen_cmp_item(self, cmd_list: str) -> str:
+    cmp_item = {"cmd": [], "out": ""}
     module = self.args.module
-    build_lst_p = os.path.join(self.env["TB_PATH"], BUILD_LST_DIR)
     cmp_out = os.path.join(self.env["SIM_PATH"], module, "build")
-    cmp_opts = self.args.cmp_opts
-    for i, cmd in enumerate(cmd_list):
-      cmd_list[i] = cmd.replace("<dut_f>", os.path.join(build_lst_p, f"{module}_v.f"))
-      cmd_list[i] = cmd.replace("<c_f>", os.path.join(build_lst_p, f"{module}_c.f"))
-      cmd_list[i] = cmd.replace("<tb_f>", os.path.join(build_lst_p, f"{module}_sv.f"))
-      cmd_list[i] = cmd.replace("<cmp_out>", cmp_out)
-      cmd_list[i] = cmd.replace("<cmp_opts>", cmp_opts)
-    return {"cmd": cmd_list, "out": cmp_out}
+    if self.args.simulator == "vcs":
+      build_lst_p = os.path.join(self.env["TB_PATH"], BUILD_LST_DIR)
+      cmp_opts = self.args.cmp_opts
+      for i, cmd in enumerate(cmd_list):
+        cmd = cmd.replace("<dut_f>", os.path.join(build_lst_p, f"{module}_v.f"))
+        cmd = cmd.replace("<c_f>", os.path.join(build_lst_p, f"{module}_c.f"))
+        cmd = cmd.replace("<tb_f>", os.path.join(build_lst_p, f"{module}_sv.f"))
+        cmd = cmd.replace("<cmp_out>", cmp_out)
+        cmd = cmd.replace("<cmp_opts>", cmp_opts)
+        cmd_list[i] = cmd
+    cmp_item["cmd"] = cmd_list
+    cmp_item["out"] = cmp_out
+    return cmp_item
   
   def gen_sim_item(self, cmd: str, tc: TestCase) -> str:
+    sim_item = {"cmd": "", "out": ""}
     module = self.args.module
-    sim_opts = f"+UVM_TESTNAME={tc.uvm_test}"
     sim_out = os.path.join(self.env["SIM_PATH"], module, tc.name)
-    cmd = cmd.replace("<sim_opts>", sim_opts)
-    cmd = cmd.replace("<seed>", tc.seed)
-    cmd = cmd.replace("<testcase>", tc.name)
-    cmd = cmd.replace("<cmp_out>", os.path.join(self.env["SIM_PATH"], module, "build"))
-    cmd = cmd.replace("<sim_out>", sim_out)
-    return {"cmd": cmd, "out": sim_out}
+    if self.args.simulator == "vcs":
+      sim_opts = f"+UVM_TESTNAME={tc.uvm_test}"
+      cmd = cmd.replace("<sim_opts>", sim_opts)
+      cmd = cmd.replace("<seed>", tc.seed)
+      cmd = cmd.replace("<testcase>", tc.name)
+      cmd = cmd.replace("<cmp_out>", os.path.join(self.env["SIM_PATH"], module, "build"))
+      cmd = cmd.replace("<sim_out>", sim_out)
+    sim_item["cmd"] = cmd
+    sim_item["out"] = sim_out
+    return sim_item
+
+  def check_args(self) -> None:
+    if self.args.compile_only and self.args.simulate_only:
+      Utils.error("Invalid argument combination: -co/--compile_only and -so/--simulate_only both enabled")
 
   def do_clean(self, dir: str) -> None:
     shutil.rmtree(dir, ignore_errors=True)
@@ -127,9 +141,11 @@ class RunCmd(BaseCmd):
   @BaseCmd.check_env
   def run(self) -> None:
     tc_pool = self.gen_tc_pool()
-    cmp_cmd, sim_cmd = self.get_vcs_cmd()
+    cmp_cmd, sim_cmd = self.get_cmd()
     
+    self.check_args()
     self.set_env_var()
+
     if not self.args.simulate_only:
       cmp_item = self.gen_cmp_item(cmp_cmd)
       self.do_compile(cmp_item)

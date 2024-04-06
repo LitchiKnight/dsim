@@ -61,7 +61,10 @@ class ListCmd(BaseCmd):
   @BaseCmd.check_env
   def run(self) -> None:
     m_l = self.get_modules()
-    for m in m_l:
-      tc_lst = Utils.run_with_animation(f"Searching {m} testcase...", self.get_tc_lst, m)
-      Utils.info(f"{m} testcase list below")
-      self.show_tc_lst(tc_lst)
+    if len(m_l) > 0:
+      for m in m_l:
+        tc_lst = Utils.run_with_animation(f"Searching {m} testcase...", self.get_tc_lst, m)
+        Utils.info(f"{m} testcase list below")
+        self.show_tc_lst(tc_lst)
+    else:
+      Utils.warning(f"empty work space")

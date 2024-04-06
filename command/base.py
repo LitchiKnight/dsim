@@ -25,7 +25,10 @@ class BaseCmd:
     return os.path.exists(self.get_list_path(module, _list))
   
   def fetch_modules(self) -> list:
-    return [f.name for f in os.scandir(self.env["TB_PATH"]) if f.is_dir()]
+    if os.path.exists(self.env["TB_PATH"]):
+      return [f.name for f in os.scandir(self.env["TB_PATH"]) if f.is_dir()]
+    else:
+      return []
   
   def check_env(func):
     def wrapper(self, *args, **kwargs):
