@@ -64,17 +64,46 @@ class RunCmd(BaseCmd):
         cmd = cmd.replace("<tb_f>", os.path.join(build_lst_p, f"{module}_sv.f"))
         cmd = cmd.replace("<cmp_out>", cmp_out)
         cmd = cmd.replace("<cmp_opts>", cmp_opts)
-        cmd_list[i] = cmd
+        cmd_list[i] = cmd.strip()
     cmp_item["cmd"] = cmd_list
     cmp_item["out"] = cmp_out
     return cmp_item
+  
+  def replace_between(self, text, start, end, repl):
+    pattern = re.compile(re.escape(start) + "(.*?)" + re.escape(end))
+    return re.sub(pattern, start + repl + end, text)
+
+  def merge_plusarg(self, tc: TestCase) -> str:
+    plusarg = tc.plusarg
+    if "+UVM_VERBOSITY=" not in plusarg:
+      verbosity = self.args.verbosity if self.args.verbosity else VERBOSITY
+      plusarg += f" +UVM_VERBOSITY={verbosity}"
+    elif self.args.verbosity:
+      plusarg = self.replace_between(plusarg, "+UVM_VERBOSITY=", " ", self.args.verbosity)
+    if "+UVM_MAX_QUIT_COUNT" not in plusarg:
+      quit = self.args.quit if self.args.quit else MAX_QUIT_COUNT
+      plusarg += f" +UVM_MAX_QUIT_COUNT={quit}"
+    elif self.args.quit:
+      plusarg = self.replace_between(plusarg, "+UVM_MAX_QUIT_COUNT=", " ", self.args.quit)
+    if self.args.plusarg:
+      arg_list = self.args.plusarg.split()
+      for arg in arg_list:
+        if re.match("\+(.*?)\=", arg):
+          pattern = re.match("\+(.*?)\=", arg).group()
+          value = re.search("=(.*)", arg).group(1)
+          if pattern in plusarg:
+            plusarg = self.replace_between(plusarg, pattern, " ", value)
+          else:
+            plusarg += f" {arg}"
+        elif arg not in plusarg:
+          plusarg += f" {arg}"
+    return plusarg
   
   def gen_sim_item(self, cmd: str, tc: TestCase) -> str:
     sim_item = {"cmd": "", "out": ""}
     sim_out = os.path.join(self.env["SIM_PATH"], self.args.module, tc.name)
     if self.args.simulator == "vcs":
-      plusarg = (tc.plusarg + self.args.plusarg).strip()
-      sim_opts = f"+UVM_TESTNAME={tc.uvm_test} +UVM_VERBOSITY={self.args.verbosity} +UVM_MAX_QUIT_COUNT={self.args.quit} {plusarg}"
+      sim_opts = f"+UVM_TESTNAME={tc.uvm_test} {self.merge_plusarg(tc)}"
       cmd = cmd.replace("<sim_opts>", sim_opts)
       cmd = cmd.replace("<seed>", tc.seed)
       cmd = cmd.replace("<testcase>", tc.name)
@@ -102,9 +131,7 @@ class RunCmd(BaseCmd):
       self.do_clean(cmp_item["out"])
     self.create_dir(cmp_item["out"])
     # temp TODO
-    with open(os.path.join(cmp_item["out"], "comp.log"), mode="w", encoding="utf-8") as f:
-      Utils.print(cmp_item["cmd"])
-      f.writelines(cmp_item["cmd"])
+    Utils.print(cmp_item["cmd"])
 
   def do_simulate(self, sim_item: dict) -> None:
     cmp_out = os.path.join(self.env["SIM_PATH"], self.args.module, "build")
@@ -113,9 +140,7 @@ class RunCmd(BaseCmd):
     self.create_dir(sim_item["out"])
     Utils.link_dir(cmp_out, sim_item["out"])
     # temp TODO
-    with open(os.path.join(sim_item["out"], "sim.log"), mode="w", encoding="utf-8") as f:
-      Utils.print(sim_item["cmd"])
-      f.write(sim_item["cmd"])
+    Utils.print(sim_item["cmd"])
 
   def do_regression(self, sim_item_pool: list) -> None:
     with ThreadPoolExecutor(max_workers=5) as pool:
