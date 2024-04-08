@@ -1,4 +1,3 @@
-import os
 from common.utils import Utils
 from command.base import BaseCmd
 
