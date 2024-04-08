@@ -71,15 +71,13 @@ class RunCmd(BaseCmd):
   
   def gen_sim_item(self, cmd: str, tc: TestCase) -> str:
     sim_item = {"cmd": "", "out": ""}
-    module = self.args.module
-    sim_out = os.path.join(self.env["SIM_PATH"], module, tc.name)
+    sim_out = os.path.join(self.env["SIM_PATH"], self.args.module, tc.name)
     if self.args.simulator == "vcs":
       plusarg = (tc.plusarg + self.args.plusarg).strip()
       sim_opts = f"+UVM_TESTNAME={tc.uvm_test} +UVM_VERBOSITY={self.args.verbosity} +UVM_MAX_QUIT_COUNT={self.args.quit} {plusarg}"
       cmd = cmd.replace("<sim_opts>", sim_opts)
       cmd = cmd.replace("<seed>", tc.seed)
       cmd = cmd.replace("<testcase>", tc.name)
-      cmd = cmd.replace("<cmp_out>", os.path.join(self.env["SIM_PATH"], module, "build"))
       cmd = cmd.replace("<sim_out>", sim_out)
     sim_item["cmd"] = cmd
     sim_item["out"] = sim_out
@@ -109,9 +107,11 @@ class RunCmd(BaseCmd):
       f.writelines(cmp_item["cmd"])
 
   def do_simulate(self, sim_item: dict) -> None:
+    cmp_out = os.path.join(self.env["SIM_PATH"], self.args.module, "build")
     if self.args.clean:
       self.do_clean(sim_item["out"])
     self.create_dir(sim_item["out"])
+    Utils.link_dir(cmp_out, sim_item["out"])
     # temp TODO
     with open(os.path.join(sim_item["out"], "sim.log"), mode="w", encoding="utf-8") as f:
       Utils.print(sim_item["cmd"])

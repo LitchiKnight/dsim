@@ -41,10 +41,10 @@
         -cm_dir <cmp_out>/simv.vdb
     sim:
       cmd:
-        <cmp_out>/simv +vcs+lic+wait
-                      <sim_opts>
-                      +ntb_random_seed=<seed>
-                      <cov_opts>
+        <sim_out>/simv +vcs+lic+wait
+             <sim_opts>
+             +ntb_random_seed=<seed>
+             <cov_opts>
       cov_opts:
         -cm_dir <sim_out>/<testcase>.vdb
         -cm_log /dev/null
