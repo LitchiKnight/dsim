@@ -26,28 +26,6 @@ class RunCmd(BaseCmd):
       Utils.error(f"Unrecognized file: {_list}")
     else:
       return self.tclparser.parse_list(self.get_list_path(module, _list), True)
-    
-  def gen_tc_pool(self) -> list:
-    tc_lst = self.get_tc_lst()
-    tc_pool = []
-    if self.args.testcase:
-      if re.match(".*_[0-9]+$", self.args.testcase):
-        for tc in tc_lst:
-          if tc.name == re.sub("_[0-9]+$", "_@seed", self.args.testcase):
-            tc_dup = copy.deepcopy(tc)
-            tc_dup.name = self.args.testcase
-            tc_dup.seed = re.search("[0-9]+$", self.args.testcase).group()
-            tc_pool.append(tc_dup)
-      if len(tc_pool) == 0:
-        Utils.error(f"Can't find {self.args.testcase} in any testcase list")
-    else:
-      for tc in tc_lst:
-        for i in range(tc.seed[0], tc.seed[1]+1):
-          tc_dup = copy.deepcopy(tc)
-          tc_dup.name = tc.name.replace("@seed", str(i))
-          tc_dup.seed = str(i)
-          tc_pool.append(tc_dup)
-    return tc_pool
   
   def get_cmd(self) -> tuple:
     cmd = self.config.get_simulator_cmd(self.args.simulator)
@@ -96,7 +74,8 @@ class RunCmd(BaseCmd):
     module = self.args.module
     sim_out = os.path.join(self.env["SIM_PATH"], module, tc.name)
     if self.args.simulator == "vcs":
-      sim_opts = f"+UVM_TESTNAME={tc.uvm_test}"
+      plusarg = (tc.plusarg + self.args.plusarg).strip()
+      sim_opts = f"+UVM_TESTNAME={tc.uvm_test} +UVM_VERBOSITY={self.args.verbosity} +UVM_MAX_QUIT_COUNT={self.args.quit} {plusarg}"
       cmd = cmd.replace("<sim_opts>", sim_opts)
       cmd = cmd.replace("<seed>", tc.seed)
       cmd = cmd.replace("<testcase>", tc.name)
@@ -138,9 +117,13 @@ class RunCmd(BaseCmd):
       Utils.print(sim_item["cmd"])
       f.write(sim_item["cmd"])
 
+  def do_regression(self, sim_item_pool: list) -> None:
+    with ThreadPoolExecutor(max_workers=5) as pool:
+      pool.map(self.do_simulate, sim_item_pool)
+
   @BaseCmd.check_env
   def run(self) -> None:
-    tc_pool = self.gen_tc_pool()
+    tc_lst = self.get_tc_lst()
     cmp_cmd, sim_cmd = self.get_cmd()
     
     self.check_args()
@@ -151,10 +134,26 @@ class RunCmd(BaseCmd):
       self.do_compile(cmp_item)
     
     if not self.args.compile_only:
+      tc_dup = None
       if self.args.testcase:
-        sim_item = self.gen_sim_item(sim_cmd, tc_pool[0])
-        self.do_simulate(sim_item)
+        if re.match(".*_[0-9]+$", self.args.testcase):
+          for tc in tc_lst:
+            if tc.name == re.sub("_[0-9]+$", "_@seed", self.args.testcase):
+              tc_dup = copy.deepcopy(tc)
+              tc_dup.name = self.args.testcase
+              tc_dup.seed = re.search("[0-9]+$", self.args.testcase).group()
+        if tc_dup != None:
+          sim_item = self.gen_sim_item(sim_cmd, tc_dup)
+          self.do_simulate(sim_item)
+        else:
+          Utils.error(f"Can't find {self.args.testcase} in target testcase list")
       else:
+        tc_pool = []
+        for tc in tc_lst:
+          for i in range(tc.seed[0], tc.seed[1]+1):
+            tc_dup = copy.deepcopy(tc)
+            tc_dup.name = tc.name.replace("@seed", str(i))
+            tc_dup.seed = str(i)
+            tc_pool.append(tc_dup)
         sim_item_pool = map(lambda x: self.gen_sim_item(sim_cmd, x), tc_pool)
-        with ThreadPoolExecutor(max_workers=5) as pool:
-          pool.map(self.do_simulate, sim_item_pool)
+        self.do_regression(sim_item_pool)

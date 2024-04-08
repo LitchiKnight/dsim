@@ -35,11 +35,14 @@ def create_parser() -> ArgumentParser:
   run.add_argument("-l" , "--list", type=str, required=True, help="target testcase list name")
   run.add_argument("-tc", "--testcase", type=str, help="target testcase name")
   run.add_argument("-cov", "--coverage", action="store_true", help="enable coverage collection")
-  run.add_argument("--cmp-opts", type=str, default="", help="compile options")
-  run.add_argument("--clean", action="store_true", help="clean simulation directories")
   run.add_argument("-co", "--compile_only", action="store_true", help="compile without simulate")
   run.add_argument("-so", "--simulate_only", action="store_true", help="simulate without compile")
   run.add_argument("-si", "--simulator", type=str, default="vcs", help="target simulator")
+  run.add_argument("-q", "--quit", type=str, default="2", help="UVM simulation max quit count")
+  run.add_argument("--clean", action="store_true", help="clean simulation directories")
+  run.add_argument("--cmp-opts", type=str, default="", help="compile options")
+  run.add_argument("--plusarg", type=str, default="", help="simulation plusarg arguments")
+  run.add_argument("--verbosity", type=str, choices=["UVM_NONE", "UVM_LOW", "UVM_MEDIUM", "UVM_HIGH", "UVM_FULL", "UVM_DEBUG"], default="UVM_MEDIUM", help="UVM verbosity level")
   run.set_defaults(func = router.do_run)
 
   return arg_parser
