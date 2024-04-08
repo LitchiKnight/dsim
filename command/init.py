@@ -45,9 +45,9 @@ class InitCmd(BaseCmd):
     Utils.info(f"Pull remote repository from {repo_path}")
     
   def pull_remote_repo(self) -> None:
-    if self.args.VCS == "git":
+    if self.args.ver_ctrl_sys == "git":
       self.pull_from_git()
-    elif self.args.VCS == "svn":
+    elif self.args.ver_ctrl_sys == "svn":
       self.pull_from_svn()
 
   def run(self) -> None:
