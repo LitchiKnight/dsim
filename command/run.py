@@ -74,7 +74,7 @@ class RunCmd(BaseCmd):
     return re.sub(pattern, start + repl + end, text)
 
   def merge_plusarg(self, tc: TestCase) -> str:
-    plusarg = tc.plusarg
+    plusarg = tc.plusarg.strip()
     if "+UVM_VERBOSITY=" not in plusarg:
       verbosity = self.args.verbosity if self.args.verbosity else VERBOSITY
       plusarg += f" +UVM_VERBOSITY={verbosity}"
