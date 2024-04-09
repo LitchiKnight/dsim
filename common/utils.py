@@ -23,9 +23,10 @@ class Utils:
     Utils._con.print(f"[yellow bold]WARNING:[/yellow bold] {msg}")
 
   @classmethod
-  def error(cls, msg: str) -> None:
+  def error(cls, msg: str, exit: bool = True) -> None:
     Utils._con.print(f"[red bold]ERROR:[/red bold] {msg}")
-    sys.exit()
+    if exit:
+      sys.exit()
 
   @classmethod
   def run_with_animation(cls, msg: str, func: any, *args: tuple) -> any:

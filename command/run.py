@@ -1,7 +1,9 @@
 import os
 import re
+import sys
 import copy
 import shutil
+import signal
 import subprocess
 from common.const import *
 from common.utils import Utils
@@ -126,21 +128,88 @@ class RunCmd(BaseCmd):
     if not os.path.exists(dir):
       Utils.error(f"Unable to create {dir}")
 
-  def do_compile(self, cmp_item: dict) -> None:
-    if self.args.clean:
-      self.do_clean(cmp_item["out"])
-    self.create_dir(cmp_item["out"])
-    # temp TODO
-    Utils.print(cmp_item["cmd"])
+  def print_icon(self, status: int) -> None:
+    icon_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+    if status == CMD_PASS:
+      with open(os.path.join(icon_dir, "pass.txt"), mode="r", encoding="utf-8") as f:
+        for line in f.readlines():
+          Utils.print(f"[green bold]{line.strip()}[/green bold]")
+    else:
+      with open(os.path.join(icon_dir, "fail.txt"), mode="r", encoding="utf-8") as f:
+        for line in f.readlines():
+          Utils.print(f"[red bold]{line.strip()}[/red bold]")
 
-  def do_simulate(self, sim_item: dict) -> None:
-    cmp_out = os.path.join(self.env["SIM_PATH"], self.args.module, "build")
+  def killgroup(self, ps: subprocess.Popen):
+    try:
+        os.killpg(os.getpgid(ps.pid), signal.SIGTERM)
+    except AttributeError: #killpg not available on windows
+        ps.kill()
+
+  def run_cmd(self, cmd: str, alarm: bool = True) -> int:
+    status = CMD_NONE
+    err_msg = ""
+    try:
+      ps = subprocess.Popen(cmd,
+                            shell=True,
+                            executable='/bin/bash',
+                            universal_newlines=True,
+                            start_new_session=True,
+                            env=os.environ,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError:
+      self.killgroup(ps)
+      status = CMD_ERROR
+      err_msg = ps.communicate()[0]
+    except KeyboardInterrupt:
+      self.killgroup(ps)
+      status = CMD_INTERRUPT
+      err_msg = "program interrupted"
+    except subprocess.TimeoutExpired:
+      self.killgroup(ps)
+      status = CMD_TIMEOUT
+      err_msg = "program timeout"
+    if alarm and err_msg:
+      Utils.error(err_msg, exit=False)
+    return status
+
+  def do_compile(self, cmp_item: dict, ignore_pass: bool = False) -> None:
+    out = cmp_item["out"]
     if self.args.clean:
-      self.do_clean(sim_item["out"])
-    self.create_dir(sim_item["out"])
-    Utils.link_dir(cmp_out, sim_item["out"])
-    # temp TODO
-    Utils.print(sim_item["cmd"])
+      self.do_clean(out)
+    self.create_dir(out)
+    os.chdir(out)
+    for cmd in cmp_item["cmd"]:
+      status = self.run_cmd(cmd)
+      if status != CMD_PASS:
+        break
+    if not (status == CMD_PASS and ignore_pass):
+      self.print_icon(status)
+      Utils.info(f"output directory: {out}")
+    if status != CMD_PASS:
+      sys.exit()
+
+  def do_simulate(self, sim_cmd: str, tc: TestCase, print_en: bool = True) -> None:
+    sim_item = self.gen_sim_item(sim_cmd, tc)
+    cmp_out = os.path.join(self.env["SIM_PATH"], self.args.module, "build")
+    sim_out = sim_item["out"]
+    if self.args.clean:
+      self.do_clean(sim_out)
+    self.create_dir(sim_out)
+    Utils.link_dir(cmp_out, sim_out)
+    os.chdir(sim_out)
+    status = self.run_cmd(sim_item["cmd"], print_en)
+    if status == CMD_PASS:
+      with open(os.path. join(sim_out, f"{tc.name}. log"), mode="r", encoding="utf-8") as f:
+        content = f.read()
+        error_count = len(re.findall("Error", content))
+        uvm_error_count = int(re.search("UVM_ERROR\s *: \s*([0-9]*)", content).group(1))
+        uvm_fatal_count = int(re.search("UVM_FATAL\s *: \s*([0-9]*)", content).group(1))
+        if error_count > 0 or uvm_error_count > 0 or uvm_fatal_count > 0:
+          status = CMD_FAIL
+    if print_en:
+      self.print_icon(status)
+      Utils.info(f"output directory: {sim_out}")
 
   def do_regression(self, sim_item_pool: list) -> None:
     with ThreadPoolExecutor(max_workers=5) as pool:
@@ -168,8 +237,7 @@ class RunCmd(BaseCmd):
               tc_dup.name = self.args.testcase
               tc_dup.seed = re.search("[0-9]+$", self.args.testcase).group()
         if tc_dup != None:
-          sim_item = self.gen_sim_item(sim_cmd, tc_dup)
-          self.do_simulate(sim_item)
+          self.do_simulate(sim_cmd, tc_dup)
         else:
           Utils.error(f"Can't find {self.args.testcase} in target testcase list")
       else:
