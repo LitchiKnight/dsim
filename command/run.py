@@ -157,6 +157,10 @@ class RunCmd(BaseCmd):
                             env=os.environ,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT)
+      while ps.poll() != None:
+        output = ps.stdout.readline()
+        if output:
+          print(output, end="")
     except subprocess.CalledProcessError:
       self.killgroup(ps)
       status = CMD_ERROR
@@ -169,6 +173,8 @@ class RunCmd(BaseCmd):
       self.killgroup(ps)
       status = CMD_TIMEOUT
       err_msg = "program timeout"
+    if status == CMD_NONE:
+      status = CMD_PASS if ps.returncode == 0 else CMD_FAIL
     if alarm and err_msg:
       Utils.error(err_msg, exit=False)
     return status
