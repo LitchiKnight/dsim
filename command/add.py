@@ -10,7 +10,7 @@ class AddCmd(BaseCmd):
     template = self.config.get_work_dir(module)
     m_p = self.get_module_path(module)
     if not self.has_module(module):
-      Utils.run_with_animation(f"Adding {module} to {project}...", Utils.dict2dir, m_p, template)
+      Utils.run_with_animation(f"Adding {module} to {project}...", self.dict2dir, m_p, template)
       if not self.has_module(module):
         Utils.error(f"Unable to create {module} module")
       Utils.info(f"Create directory for {module} at {m_p}")

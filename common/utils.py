@@ -1,7 +1,6 @@
-import os
 import sys
 import time
-import errno
+from common.const import *
 from rich.console import Console
 
 class Utils:
@@ -36,33 +35,3 @@ class Utils:
         return func(*args)
       except Exception as e:
         Utils.error(e)
-
-  @classmethod
-  def dict2dir(self, base: any, template: dict) -> None:
-    for k, v in template.items():
-      path = os.path.join(base, k)
-      if isinstance(v, dict):
-        self.dict2dir(path, v)
-      elif isinstance(v, list):
-        os.makedirs(path, exist_ok=True)
-        for f_n in v:
-          f = open(os.path.join(path, f_n), "w")
-          f.close()
-
-  @classmethod
-  def link_dir(self, src: str, dst: str) -> None:
-    file_list = os.listdir(src)
-    path_pair = map(lambda x: {"src": os.path.join(src, x), "dst": os.path.join(dst, x)}, file_list)
-    for item in path_pair:
-      try:
-        os.symlink(item["src"], item["dst"])
-      except OSError as e:
-        if e.errno == errno.EEXIST:
-          os.remove(item["dst"])
-          os.symlink(item["src"], item["dst"])
-        else:
-          Utils.error(e)
-      finally:
-        if not os.path.islink(item["dst"]):
-          link = item["src"]
-          Utils.error(f"unable to link \'{link}\'")

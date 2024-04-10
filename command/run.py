@@ -3,8 +3,6 @@ import re
 import sys
 import copy
 import shutil
-import signal
-import subprocess
 from common.const import *
 from common.utils import Utils
 from command.base import BaseCmd
@@ -123,13 +121,9 @@ class RunCmd(BaseCmd):
     if os.path.exists(dir):
         Utils.warning(f"Unable to clean {dir}")
 
-  def create_dir(self, dir: str) -> None:
-    os.makedirs(dir, exist_ok=True)
-    if not os.path.exists(dir):
-      Utils.error(f"Unable to create {dir}")
-
   def print_icon(self, status: int) -> None:
-    icon_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+    curr_dir = os.path.dirname(os.path.realpath(__file__))
+    icon_dir = os.path.join(os.path.dirname(curr_dir), "icon")
     if status == CMD_PASS:
       with open(os.path.join(icon_dir, "pass.txt"), mode="r", encoding="utf-8") as f:
         for line in f.readlines():
@@ -138,46 +132,6 @@ class RunCmd(BaseCmd):
       with open(os.path.join(icon_dir, "fail.txt"), mode="r", encoding="utf-8") as f:
         for line in f.readlines():
           Utils.print(f"[red bold]{line.strip()}[/red bold]")
-
-  def killgroup(self, ps: subprocess.Popen):
-    try:
-        os.killpg(os.getpgid(ps.pid), signal.SIGTERM)
-    except AttributeError: #killpg not available on windows
-        ps.kill()
-
-  def run_cmd(self, cmd: str, alarm: bool = True) -> int:
-    status = CMD_NONE
-    err_msg = ""
-    try:
-      ps = subprocess.Popen(cmd,
-                            shell=True,
-                            executable='/bin/bash',
-                            universal_newlines=True,
-                            start_new_session=True,
-                            env=os.environ,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT)
-      while ps.poll() != None:
-        output = ps.stdout.readline()
-        if output:
-          print(output, end="")
-    except subprocess.CalledProcessError:
-      self.killgroup(ps)
-      status = CMD_ERROR
-      err_msg = ps.communicate()[0]
-    except KeyboardInterrupt:
-      self.killgroup(ps)
-      status = CMD_INTERRUPT
-      err_msg = "program interrupted"
-    except subprocess.TimeoutExpired:
-      self.killgroup(ps)
-      status = CMD_TIMEOUT
-      err_msg = "program timeout"
-    if status == CMD_NONE:
-      status = CMD_PASS if ps.returncode == 0 else CMD_FAIL
-    if alarm and err_msg:
-      Utils.error(err_msg, exit=False)
-    return status
 
   def do_compile(self, cmp_item: dict, ignore_pass: bool = False) -> None:
     out = cmp_item["out"]
@@ -202,17 +156,20 @@ class RunCmd(BaseCmd):
     if self.args.clean:
       self.do_clean(sim_out)
     self.create_dir(sim_out)
-    Utils.link_dir(cmp_out, sim_out)
+    self.link_dir(cmp_out, sim_out)
     os.chdir(sim_out)
     status = self.run_cmd(sim_item["cmd"], print_en)
     if status == CMD_PASS:
-      with open(os.path. join(sim_out, f"{tc.name}. log"), mode="r", encoding="utf-8") as f:
-        content = f.read()
-        error_count = len(re.findall("Error", content))
-        uvm_error_count = int(re.search("UVM_ERROR\s *: \s*([0-9]*)", content).group(1))
-        uvm_fatal_count = int(re.search("UVM_FATAL\s *: \s*([0-9]*)", content).group(1))
-        if error_count > 0 or uvm_error_count > 0 or uvm_fatal_count > 0:
-          status = CMD_FAIL
+      try:
+        with open(os.path. join(sim_out, f"{tc.name}.log"), mode="r", encoding="utf-8") as f:
+          content = f.read()
+          error_count = len(re.findall("Error", content))
+          uvm_error_count = int(re.search("UVM_ERROR\s *: \s*([0-9]*)", content).group(1))
+          uvm_fatal_count = int(re.search("UVM_FATAL\s *: \s*([0-9]*)", content).group(1))
+          if error_count > 0 or uvm_error_count > 0 or uvm_fatal_count > 0:
+            status = CMD_FAIL
+      except FileNotFoundError:
+        Utils.error(f"can't find simulation log file at {sim_out}")
     if print_en:
       self.print_icon(status)
       Utils.info(f"output directory: {sim_out}")
@@ -231,7 +188,7 @@ class RunCmd(BaseCmd):
 
     if not self.args.simulate_only:
       cmp_item = self.gen_cmp_item(cmp_cmd)
-      self.do_compile(cmp_item)
+      self.do_compile(cmp_item, not self.args.compile_only)
     
     if not self.args.compile_only:
       tc_dup = None

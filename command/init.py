@@ -1,7 +1,7 @@
 import os
 import shutil
-import subprocess
 from git import Repo
+from common.const import *
 from common.utils import Utils
 from command.base import BaseCmd
 
@@ -18,7 +18,7 @@ class InitCmd(BaseCmd):
         Utils.error(f"Unable to remove {project} project")
       Utils.info(f"Deleted {project} existing work space")
     if not os.path.exists(work_path):
-      os.makedirs(work_path)
+      self.create_dir(work_path)
       Utils.info(f"Create new work space for {project} at {work_path}")
       return True
     else:
@@ -28,21 +28,22 @@ class InitCmd(BaseCmd):
   def pull_from_git(self) -> None:
     work_path = self.env["WORK_PATH"]
     repo_path = self.env["git_repo"]
-    try:
-      subprocess.run(["git", "--version"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    if self.run_cmd("git --version", print_en=False) != CMD_PASS:
       Utils.error("GIT is not installed")
     repo = Repo.init()
     remote = Utils.run_with_animation("Cloning remote repository", repo.clone_from, repo_path, work_path)
     Utils.info(f"Pull remote repository from {repo_path}")
 
   def pull_from_svn(self) -> None:
-    repo_path = self.env["git_svn"]
-    try:
-      subprocess.run(["svn", "--version"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    work_path = self.env["WORK_PATH"]
+    repo_path = self.env["svn_repo"]
+    if self.run_cmd("svn --version", print_en=False) != CMD_PASS:
       Utils.error("SVN is not installed")
-    Utils.info(f"Pull remote repository from {repo_path}")
+    os.chdir(work_path)
+    if self.run_cmd(f"svn checkout {repo_path}") == CMD_PASS:
+      Utils.info(f"Pull remote repository from {repo_path}")
+    else:
+      Utils.error("Pull SVN repository failed")
     
   def pull_remote_repo(self) -> None:
     if self.args.ver_ctrl_sys == "git":
