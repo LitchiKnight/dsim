@@ -5,13 +5,13 @@
              - sverilog
              - uvmDebug
              -ntb_opts uvm1.1d
-             -f <dut f>
-             -f <c f>
-             -f <tb f>
-             -top {top} -autoalias
-             +UVM TESTNAME =< testcase>
-             -ssf <waveform>
-             +verilog2001ext+. v+. V
-             +libext+. v+. V+. sv+. svi
-             +systemverilogext+.sv+. svi
+             -f <dut_f>
+             -f <c_f>
+             -f <tb_f>
+             -top <top> -autoalias
+             +UVM_TESTNAME=<testcase>
+             -ssf <testcase>.fsdb
+             +verilog2001ext+.v+.V
+             +libext+.v+.V+.sv+.svi
+             +systemverilogext+.sv+.svi
              -nologo &"

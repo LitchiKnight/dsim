@@ -3,6 +3,7 @@ from command.add import AddCmd
 from command.remove import RemoveCmd
 from command.list import ListCmd
 from command.run import RunCmd
+from command.debug import DebugCmd
 
 class Router:
   def __init__(self) -> None:
@@ -27,3 +28,7 @@ class Router:
   def do_run(self, args: tuple) -> None:
     run = RunCmd(args)
     run.run()
+
+  def do_debug(self, args: tuple) -> None:
+    debug = DebugCmd(args)
+    debug.run()

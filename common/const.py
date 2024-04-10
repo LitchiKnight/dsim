@@ -7,6 +7,7 @@ VER_CTRL_SYS = "git"
 SIMULATOR = "vcs"
 MAX_QUIT_COUNT = "2"
 VERBOSITY = "UVM_MEDIUM"
+DEBUGER = "verdi"
 
 # cmd status
 CMD_NONE = 0

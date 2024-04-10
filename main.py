@@ -46,6 +46,14 @@ def create_parser() -> ArgumentParser:
   run.add_argument("--verbosity", type=str, choices=["UVM_NONE", "UVM_LOW", "UVM_MEDIUM", "UVM_HIGH", "UVM_FULL", "UVM_DEBUG"], default="", help="UVM verbosity level")
   run.set_defaults(func = router.do_run)
 
+  debug = sub_parser.add_parser("debug")
+  debug.add_argument("-p" , "--project", type=str, required=True, help="target project name")
+  debug.add_argument("-m" , "--module", type=str, required=True, help="target module name")
+  debug.add_argument("-tc", "--testcase", type=str, required=True, help="target testcase name")
+  debug.add_argument("--top", type=str, default="top", help="target module top name")
+  debug.add_argument("-db", "--debuger", type=str, default=DEBUGER, help="target debuger")
+  debug.set_defaults(func = router.do_debug)
+
   return arg_parser
 
 def main() -> None:

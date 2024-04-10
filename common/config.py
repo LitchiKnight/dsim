@@ -52,3 +52,16 @@ class Config:
       if tool in item:
         return item[tool]
     Utils.error(f"No such simulator: {tool}")
+
+  def get_debug_cmd(self, tool: str) -> dict:
+    yaml_file = os.path.join(self.yaml_path, "debuger.yaml")
+    try:
+      with open(yaml_file, mode="r", encoding="utf-8") as f:
+        content = f.read().strip()
+        debuger = yaml.load(content, Loader=yaml.FullLoader)
+    except Exception as e:
+      Utils.error(e)
+    for item in debuger:
+      if tool in item:
+        return item[tool]
+    Utils.error(f"No such debuger: {tool}")
