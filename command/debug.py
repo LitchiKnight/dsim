@@ -22,7 +22,9 @@ class DebugCmd(BaseCmd):
   def do_debug(self, cmd: str) -> None:
     sim_out = os.path.join(self.env["SIM_PATH"], self.args.module, self.args.testcase)
     os.chdir(sim_out)
-    self.run_cmd(cmd)
+    status, err_msg = self.run_cmd(cmd)
+    if status != CmdStatus.CMD_PASS:
+      Utils.error(err_msg)
 
   def run(self) -> None:
     module = self.args.module

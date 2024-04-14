@@ -1,3 +1,5 @@
+from enum import Enum
+
 # env
 BUILD_LST_DIR = "build/file_lst"
 TC_LST_DIR = "tc_lst"
@@ -10,9 +12,10 @@ VERBOSITY = "UVM_MEDIUM"
 DEBUGER = "verdi"
 
 # cmd status
-CMD_NONE = 0
-CMD_PASS = 1
-CMD_FAIL = 2
-CMD_ERROR = 3
-CMD_INTERRUPT = 4
-CMD_TIMEOUT = 5
+class CmdStatus:
+  CMD_NONE = 0
+  CMD_PASS = 1
+  CMD_FAIL = 2
+  CMD_ERROR = 3
+  CMD_INTERRUPT = 4
+  CMD_TIMEOUT = 5

@@ -3,10 +3,15 @@ import re
 import sys
 import copy
 import shutil
+import random
+import signal
+import concurrent.futures
 from common.const import *
 from common.utils import Utils
 from command.base import BaseCmd
 from data.testcase import TestCase
+from data.simresult import SimResult
+from data.regress import Regress
 from common.tclparse import TestCaseListParser
 from concurrent.futures import ThreadPoolExecutor
 
@@ -14,6 +19,7 @@ class RunCmd(BaseCmd):
   def __init__(self, args: tuple) -> None:
     super().__init__(args)
     self.tclparser = TestCaseListParser()
+    self.regress = Regress()
 
   def get_tc_lst(self) -> dict:
     module = self.args.module
@@ -124,7 +130,7 @@ class RunCmd(BaseCmd):
   def print_icon(self, status: int) -> None:
     curr_dir = os.path.dirname(os.path.realpath(__file__))
     icon_dir = os.path.join(os.path.dirname(curr_dir), "icon")
-    if status == CMD_PASS:
+    if status == CmdStatus.CMD_PASS:
       with open(os.path.join(icon_dir, "pass.txt"), mode="r", encoding="utf-8") as f:
         for line in f.readlines():
           Utils.print(f"[green bold]{line.strip()}[/green bold]")
@@ -133,23 +139,25 @@ class RunCmd(BaseCmd):
         for line in f.readlines():
           Utils.print(f"[red bold]{line.strip()}[/red bold]")
 
-  def do_compile(self, cmp_item: dict, ignore_pass: bool = False) -> None:
+  def do_compile(self, cmp_item: dict, compile_only: bool = False) -> None:
     out = cmp_item["out"]
     if self.args.clean:
       self.do_clean(out)
     self.create_dir(out)
     os.chdir(out)
     for cmd in cmp_item["cmd"]:
-      status = self.run_cmd(cmd)
-      if status != CMD_PASS:
+      status, err_msg = self.run_cmd(cmd)
+      if status != CmdStatus.CMD_PASS:
         break
-    if not (status == CMD_PASS and ignore_pass):
+    if status != CmdStatus.CMD_PASS and err_msg:
+      Utils.error(err_msg, exit=False)
+    if not (status == CmdStatus.CMD_PASS and compile_only):
       self.print_icon(status)
       Utils.info(f"output directory: {out}")
-    if status != CMD_PASS:
+    if status != CmdStatus.CMD_PASS:
       sys.exit()
 
-  def do_simulate(self, sim_cmd: str, tc: TestCase, print_en: bool = True) -> None:
+  def simulate_single_testcase(self, sim_cmd: str, tc: TestCase, is_regress: bool = False) -> None:
     sim_item = self.gen_sim_item(sim_cmd, tc)
     cmp_out = os.path.join(self.env["SIM_PATH"], self.args.module, "build")
     sim_out = sim_item["out"]
@@ -158,37 +166,60 @@ class RunCmd(BaseCmd):
     self.create_dir(sim_out)
     self.link_dir(cmp_out, sim_out)
     os.chdir(sim_out)
-    status = self.run_cmd(sim_item["cmd"], print_en)
-    if status == CMD_PASS:
-      try:
-        with open(os.path. join(sim_out, f"{tc.name}.log"), mode="r", encoding="utf-8") as f:
-          content = f.read()
-          error_count = len(re.findall("Error", content))
-          uvm_error_count = int(re.search("UVM_ERROR\s *: \s*([0-9]*)", content).group(1))
-          uvm_fatal_count = int(re.search("UVM_FATAL\s *: \s*([0-9]*)", content).group(1))
-          if error_count > 0 or uvm_error_count > 0 or uvm_fatal_count > 0:
-            status = CMD_FAIL
-      except FileNotFoundError:
-        Utils.error(f"can't find simulation log file at {sim_out}")
-    if print_en:
+    status, err_msg = self.run_cmd(sim_item["cmd"], is_regress)
+    if status == CmdStatus.CMD_PASS:
+      with open(os.path. join(sim_out, f"{tc.name}.log"), mode="r", encoding="utf-8") as f:
+        content = f.read()
+        error_count = len(re.findall("Error", content))
+        uvm_error_count = int(re.search("UVM_ERROR\s *: \s*([0-9]*)", content).group(1))
+        uvm_fatal_count = int(re.search("UVM_FATAL\s *: \s*([0-9]*)", content).group(1))
+        if error_count > 0 or uvm_error_count > 0 or uvm_fatal_count > 0:
+          status = CmdStatus.CMD_FAIL
+          # TODO find error info from log file, count simulation time
+        self.regress.set_tc_status(tc.name, status)
+    else:
+      self.regress.set_tc_status(tc.name, status)
+      self.regress.set_tc_info(tc.name, err_msg)
+    if is_regress:
+      self.regress.print_curr_state(tc.name)
+    else:
       self.print_icon(status)
       Utils.info(f"output directory: {sim_out}")
 
-  def do_regression(self, sim_item_pool: list) -> None:
-    with ThreadPoolExecutor(max_workers=5) as pool:
-      pool.map(self.do_simulate, sim_item_pool)
+  def do_simulate(self, sim_cmd: str, tc_lst: list) -> None:
+    for tc in tc_lst:
+      sim_res = SimResult(tc.name)
+      sim_res.seed = tc.seed
+      self.regress.add_sim_res(sim_res)
+    random.shuffle(tc_lst)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:
+      th_list = [pool.submit(self.simulate_single_testcase, sim_cmd, tc, (len(tc_lst) > 1)) for tc in tc_lst]
+      try:
+        concurrent.futures.wait(th_list)
+      except KeyboardInterrupt:
+        for th in th_list:
+          th.cancel()
+        for ps in self.ps_list:
+          if ps.pool() == None:
+            os.killpg(os.getpgid(ps.pid), signal.SIGINT)
+        Utils.error("Interrupt simulation", exit=False)
+      except Exception as e:
+        Utils.error(e, exit=False)
+    if (len(tc_lst) > 1):
+      self.regress.print_regress_res()
 
   @BaseCmd.check_env
   def run(self) -> None:
     tc_lst = self.get_tc_lst()
     cmp_cmd, sim_cmd = self.get_cmd()
+    tc_pool = []
     
     self.check_args()
     self.set_env_var()
 
     if not self.args.simulate_only:
       cmp_item = self.gen_cmp_item(cmp_cmd)
-      self.do_compile(cmp_item, not self.args.compile_only)
+      self.do_compile(cmp_item, self.args.compile_only)
     
     if not self.args.compile_only:
       tc_dup = None
@@ -200,16 +231,14 @@ class RunCmd(BaseCmd):
               tc_dup.name = self.args.testcase
               tc_dup.seed = re.search("[0-9]+$", self.args.testcase).group()
         if tc_dup != None:
-          self.do_simulate(sim_cmd, tc_dup)
+          tc_pool.append(tc_dup)
         else:
           Utils.error(f"Can't find {self.args.testcase} in target testcase list")
       else:
-        tc_pool = []
         for tc in tc_lst:
           for i in range(tc.seed[0], tc.seed[1]+1):
             tc_dup = copy.deepcopy(tc)
             tc_dup.name = tc.name.replace("@seed", str(i))
             tc_dup.seed = str(i)
             tc_pool.append(tc_dup)
-        sim_item_pool = map(lambda x: self.gen_sim_item(sim_cmd, x), tc_pool)
-        self.do_regression(sim_item_pool)
+      self.do_simulate(sim_cmd, tc_pool)
