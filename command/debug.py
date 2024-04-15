@@ -30,4 +30,3 @@ class DebugCmd(BaseCmd):
       Utils.error(f"No such module: {module}")
     cmd = self.get_cmd()
     self.do_debug(cmd)
-    Utils.print(cmd)
