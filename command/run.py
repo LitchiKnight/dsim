@@ -13,7 +13,7 @@ from data.testcase import TestCase
 from data.simresult import SimResult
 from data.regress import Regress
 from common.tclparse import TestCaseListParser
-from concurrent.futures import ThreadPoolExecutor
+import concurrent.futures
 
 class RunCmd(BaseCmd):
   def __init__(self, args: tuple) -> None:
@@ -201,7 +201,7 @@ class RunCmd(BaseCmd):
           th.cancel()
         for ps in self.ps_list:
           if ps.pool() == None:
-            os.killpg(os.getpgid(ps.pid), signal.SIGINT)
+            self.killgroup(ps)
         Utils.error("Interrupt simulation", exit=False)
       except Exception as e:
         Utils.error(e, exit=False)
