@@ -11,6 +11,7 @@ class BaseCmd:
     self.args = args
     self.config = Config()
     self.env = self.config.get_env(args.project)
+    self.ps_list = []
 
   def get_module_path(self, module: str) -> str:
     return os.path.join(self.env["TB_PATH"], module)
@@ -82,8 +83,8 @@ class BaseCmd:
     except AttributeError: #killpg not available on windows
         ps.kill()
 
-  def run_cmd(self, cmd: str, print_en: bool = True) -> int:
-    status = CMD_NONE
+  def run_cmd(self, cmd: str, mask: bool = False) -> tuple:
+    status = CmdStatus.CMD_NONE
     err_msg = ""
     try:
       ps = subprocess.Popen(cmd,
@@ -94,24 +95,23 @@ class BaseCmd:
                             env=os.environ,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT)
+      self.ps_list.append(ps)
       while ps.poll() == None:
         output = ps.stdout.readline()
-        if print_en and output:
+        if not mask and output:
           print(output, end="")
     except subprocess.CalledProcessError:
       self.killgroup(ps)
-      status = CMD_ERROR
+      status = CmdStatus.CMD_ERROR
       err_msg = ps.communicate()[0]
     except KeyboardInterrupt:
       self.killgroup(ps)
-      status = CMD_INTERRUPT
+      status = CmdStatus.CMD_INTERRUPT
       err_msg = "program interrupted"
     except subprocess.TimeoutExpired:
       self.killgroup(ps)
-      status = CMD_TIMEOUT
+      status = CmdStatus.CMD_TIMEOUT
       err_msg = "program timeout"
-    if status == CMD_NONE:
-      status = CMD_PASS if ps.returncode == 0 else CMD_FAIL
-    if print_en and err_msg:
-      Utils.error(err_msg, exit=False)
-    return status
+    if status == CmdStatus.CMD_NONE:
+      status = CmdStatus.CMD_PASS if ps.returncode == 0 else CmdStatus.CMD_FAIL
+    return status, err_msg
