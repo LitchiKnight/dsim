@@ -28,8 +28,8 @@ class InitCmd(BaseCmd):
   def pull_from_git(self) -> None:
     work_path = self.env["WORK_PATH"]
     repo_path = self.env["git_repo"]
-    status, err_msg = self.run_cmd("git --version", mask=True)
-    if status != CmdStatus.CMD_PASS:
+    status, err_msg, _ = self.run_cmd("git --version", mask=True)
+    if status != CmdStatus.PASS:
       Utils.error("GIT is not installed")
     repo = Repo.init()
     remote = Utils.run_with_animation("Cloning remote repository", repo.clone_from, repo_path, work_path)
@@ -38,12 +38,12 @@ class InitCmd(BaseCmd):
   def pull_from_svn(self) -> None:
     work_path = self.env["WORK_PATH"]
     repo_path = self.env["svn_repo"]
-    status, err_msg = self.run_cmd("svn --version", mask=True)
-    if status != CmdStatus.CMD_PASS:
+    status, err_msg, _ = self.run_cmd("svn --version", mask=True)
+    if status != CmdStatus.PASS:
       Utils.error("SVN is not installed")
     os.chdir(work_path)
-    status, err_msg = self.run_cmd(f"svn checkout {repo_path}")
-    if status == CmdStatus.CMD_PASS:
+    status, err_msg, _ = self.run_cmd(f"svn checkout {repo_path}")
+    if status == CmdStatus.PASS:
       Utils.info(f"Pull remote repository from {repo_path}")
     else:
       Utils.error(err_msg)

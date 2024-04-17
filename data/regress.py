@@ -25,11 +25,11 @@ class Regress:
     for sim_res in self.sim_res_list:
       if sim_res.name == tc_name:
         sim_res.status = status
-        if status == CmdStatus.CMD_PASS:
+        if status == CmdStatus.PASS:
           self.pass_num += 1
-        elif status == CmdStatus.CMD_FAIL:
+        elif status == CmdStatus.FAIL:
           self.fail_num += 1
-        elif status == CmdStatus.CMD_TIMEOUT:
+        elif status == CmdStatus.TIMEOUT:
           self.timeout_num += 1
         else:
           self.exception_num += 1
@@ -59,5 +59,31 @@ class Regress:
   def print_regress_res(self) -> None:
     Utils.info(f"regression result: pass:{self.pass_num}, fail:{self.fail_num}, timeout: {self.timeout_num}, exception: {self.exception_num}")
 
-
-    
+  def gen_regress_report(self) -> str:
+    report = ""
+    total_width = TC_WIDTH+SEED_WIDTH+RESULT_WIDTH+TIME_WIDTH+INFO_WIDTH+6
+    divider = "-"*total_width+"\n"
+    cols = "│{:<{}}│{:<{}}│{:<{}}│{:<{}}│{:<{}}│\n"
+    report += divider
+    report += cols.format(
+      "Testcase", TC_WIDTH,
+      "Seed", SEED_WIDTH,
+      "Result", RESULT_WIDTH,
+      "Time", TIME_WIDTH,
+      "Info", INFO_WIDTH
+    )
+    report += divider
+    for sim_res in self.sim_res_list:
+      if len(sim_res.info) > INFO_WIDTH:
+        info = sim_res.info[0:67]+"..."+sim_res.info[-70:]
+      else:
+        info = sim_res.info
+      report += cols.format(
+        sim_res.name, TC_WIDTH,
+        sim_res.seed, SEED_WIDTH,
+        sim_res.status.name, RESULT_WIDTH,
+        sim_res.time, TIME_WIDTH,
+        info, INFO_WIDTH
+      )
+    report += divider
+    return report

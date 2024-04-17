@@ -4,7 +4,6 @@ import sys
 import copy
 import shutil
 import random
-import signal
 import concurrent.futures
 from common.const import *
 from common.utils import Utils
@@ -130,7 +129,7 @@ class RunCmd(BaseCmd):
   def print_icon(self, status: int) -> None:
     curr_dir = os.path.dirname(os.path.realpath(__file__))
     icon_dir = os.path.join(os.path.dirname(curr_dir), "icon")
-    if status == CmdStatus.CMD_PASS:
+    if status == CmdStatus.PASS:
       with open(os.path.join(icon_dir, "pass.txt"), mode="r", encoding="utf-8") as f:
         for line in f.readlines():
           Utils.print(f"[green bold]{line.strip()}[/green bold]")
@@ -146,15 +145,15 @@ class RunCmd(BaseCmd):
     self.create_dir(out)
     os.chdir(out)
     for cmd in cmp_item["cmd"]:
-      status, err_msg = self.run_cmd(cmd)
-      if status != CmdStatus.CMD_PASS:
+      status, err_msg, _ = self.run_cmd(cmd)
+      if status != CmdStatus.PASS:
         break
-    if status != CmdStatus.CMD_PASS and err_msg:
+    if status != CmdStatus.PASS and err_msg:
       Utils.error(err_msg, exit=False)
-    if not (status == CmdStatus.CMD_PASS and compile_only):
+    if not (status == CmdStatus.PASS and compile_only):
       self.print_icon(status)
       Utils.info(f"output directory: {out}")
-    if status != CmdStatus.CMD_PASS:
+    if status != CmdStatus.PASS:
       sys.exit()
 
   def simulate_single_testcase(self, sim_cmd: str, tc: TestCase, is_regress: bool = False) -> None:
@@ -166,20 +165,29 @@ class RunCmd(BaseCmd):
     self.create_dir(sim_out)
     self.link_dir(cmp_out, sim_out)
     os.chdir(sim_out)
-    status, err_msg = self.run_cmd(sim_item["cmd"], is_regress)
-    if status == CmdStatus.CMD_PASS:
+    status, err_msg, time = self.run_cmd(sim_item["cmd"], is_regress)
+    if status == CmdStatus.PASS:
       with open(os.path. join(sim_out, f"{tc.name}.log"), mode="r", encoding="utf-8") as f:
-        content = f.read()
-        error_count = len(re.findall("Error", content))
-        uvm_error_count = int(re.search("UVM_ERROR\s *: \s*([0-9]*)", content).group(1))
-        uvm_fatal_count = int(re.search("UVM_FATAL\s *: \s*([0-9]*)", content).group(1))
-        if error_count > 0 or uvm_error_count > 0 or uvm_fatal_count > 0:
-          status = CmdStatus.CMD_FAIL
-          # TODO find error info from log file, count simulation time
-        self.regress.set_tc_status(tc.name, status)
-    else:
-      self.regress.set_tc_status(tc.name, status)
-      self.regress.set_tc_info(tc.name, err_msg)
+        content = f.readlines()
+        for line in content:
+          if re.match("^(UVM_ERROR|UVM_FATAL|Error)"):
+            status = CmdStatus.FAIL
+            err_msg = line.strip()
+            break
+          elif "UVM Report Summary" in line:
+            break
+    elif status == CmdStatus.FAIL:
+      with open(os.path. join(sim_out, f"{tc.name}.log"), mode="r", encoding="utf-8") as f:
+        content = f.readlines()
+        for line in content:
+          if re.match("^Error"):
+            err_msg = line.strip()
+            break
+        status = CmdStatus.INTERRUPT
+        err_msg = "program interrupted"
+    self.regress.set_tc_status(tc.name, status)
+    self.regress.set_tc_time(tc.name, str(time))
+    self.regress.set_tc_info(tc.name, err_msg)
     if is_regress:
       self.regress.print_curr_state(tc.name)
     else:
@@ -187,13 +195,14 @@ class RunCmd(BaseCmd):
       Utils.info(f"output directory: {sim_out}")
 
   def do_simulate(self, sim_cmd: str, tc_lst: list) -> None:
+    self.regress.total = len(tc_lst)
     for tc in tc_lst:
       sim_res = SimResult(tc.name)
       sim_res.seed = tc.seed
       self.regress.add_sim_res(sim_res)
     random.shuffle(tc_lst)
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:
-      th_list = [pool.submit(self.simulate_single_testcase, sim_cmd, tc, (len(tc_lst) > 1)) for tc in tc_lst]
+      th_list = [pool.submit(self.simulate_single_testcase, sim_cmd, tc, (self.regress.total > 1)) for tc in tc_lst]
       try:
         concurrent.futures.wait(th_list)
       except KeyboardInterrupt:
@@ -205,8 +214,14 @@ class RunCmd(BaseCmd):
         Utils.error("Interrupt simulation", exit=False)
       except Exception as e:
         Utils.error(e, exit=False)
-    if (len(tc_lst) > 1):
+    if (self.regress.total > 1):
+      regr_dir = os.path.join(self.env["SIM_PATH"], self.args.module, "regress")
+      report = self.regress.gen_regress_report()
+      os.makedirs(regr_dir, exist_ok=True)
+      with open(os.path.join(regr_dir, "report.f"), mode="w", encoding="utf-8") as f:
+        f.write(report)
       self.regress.print_regress_res()
+      Utils.info(f"output directory: {regr_dir}")
 
   @BaseCmd.check_env
   def run(self) -> None:

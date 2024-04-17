@@ -12,10 +12,17 @@ VERBOSITY = "UVM_MEDIUM"
 DEBUGER = "verdi"
 
 # cmd status
-class CmdStatus:
-  CMD_NONE = 0
-  CMD_PASS = 1
-  CMD_FAIL = 2
-  CMD_ERROR = 3
-  CMD_INTERRUPT = 4
-  CMD_TIMEOUT = 5
+class CmdStatus(Enum):
+  NONE = 0
+  PASS = 1
+  FAIL = 2
+  ERROR = 3
+  INTERRUPT = 4
+  TIMEOUT = 5
+
+# regression report format
+TC_WIDTH = 50
+SEED_WIDTH = 20
+RESULT_WIDTH = 12
+TIME_WIDTH = 20
+INFO_WIDTH = 140

@@ -1,6 +1,8 @@
 import os
+import time
 import errno
 import signal
+import threading
 import subprocess
 from common.config import Config
 from common.utils import Utils
@@ -83,9 +85,10 @@ class BaseCmd:
     except AttributeError: #killpg not available on windows
         ps.kill()
 
-  def run_cmd(self, cmd: str, mask: bool = False) -> tuple:
-    status = CmdStatus.CMD_NONE
+  def run_cmd(self, cmd: str, mask: bool = False, time_limit: float = 300) -> tuple:
+    status = CmdStatus.NONE
     err_msg = ""
+    start = time.time()
     try:
       ps = subprocess.Popen(cmd,
                             shell=True,
@@ -95,23 +98,28 @@ class BaseCmd:
                             env=os.environ,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT)
+      timer = threading.Timer(time_limit, self.killgroup, [ps])
+      timer.start()
       self.ps_list.append(ps)
       while ps.poll() == None:
         output = ps.stdout.readline()
         if not mask and output:
           print(output, end="")
     except subprocess.CalledProcessError:
-      self.killgroup(ps)
-      status = CmdStatus.CMD_ERROR
+      status = CmdStatus.ERROR
       err_msg = ps.communicate()[0]
+      self.killgroup(ps)
     except KeyboardInterrupt:
+      status = CmdStatus.INTERRUPT
+      err_msg = "program interrputed"
       self.killgroup(ps)
-      status = CmdStatus.CMD_INTERRUPT
-      err_msg = "program interrupted"
-    except subprocess.TimeoutExpired:
-      self.killgroup(ps)
-      status = CmdStatus.CMD_TIMEOUT
-      err_msg = "program timeout"
-    if status == CmdStatus.CMD_NONE:
-      status = CmdStatus.CMD_PASS if ps.returncode == 0 else CmdStatus.CMD_FAIL
-    return status, err_msg
+    finally:
+      if timer.is_alive():
+        timer.cancel()
+      else:
+        status = CmdStatus.TIMEOUT
+        err_msg = "program timeout"
+    if status == CmdStatus.NONE:
+      status = CmdStatus.PASS if ps.returncode == 0 else CmdStatus.FAIL
+    consumption = time.time() - start
+    return status, err_msg, consumption
