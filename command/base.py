@@ -81,7 +81,7 @@ class BaseCmd:
   
   def killgroup(self, ps: subprocess.Popen):
     try:
-        os.killpg(os.getpgid(ps.pid), signal.SIGTERM)
+        os.killpg(os.getpgid(ps.pid), signal.SIGKILL)
     except AttributeError: #killpg not available on windows
         ps.kill()
 

@@ -40,6 +40,7 @@ def create_parser() -> ArgumentParser:
   run.add_argument("-so", "--simulate_only", action="store_true", help="simulate without compile")
   run.add_argument("-si", "--simulator", type=str, default=SIMULATOR, help="target simulator")
   run.add_argument("-q", "--quit", type=str, default="", help="UVM simulation max quit count")
+  run.add_argument("-rs", "--rand_seed", action="store_true", help="execute regression with random seed")
   run.add_argument("--clean", action="store_true", help="clean simulation directories")
   run.add_argument("--cmp-opts", type=str, default="", help="compile options")
   run.add_argument("--plusarg", type=str, default="", help="simulation plusarg arguments")

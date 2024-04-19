@@ -120,6 +120,8 @@ class RunCmd(BaseCmd):
   def check_args(self) -> None:
     if self.args.compile_only and self.args.simulate_only:
       Utils.error("Invalid argument combination: -co/--compile_only and -so/--simulate_only both enabled")
+    if self.args.testcase and self.args.rand_seed:
+      Utils.error("random seed only can be used at regression senario")
 
   def do_clean(self, dir: str) -> None:
     shutil.rmtree(dir, ignore_errors=True)
@@ -204,7 +206,7 @@ class RunCmd(BaseCmd):
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:
       th_list = [pool.submit(self.simulate_single_testcase, sim_cmd, tc, (self.regress.total > 1)) for tc in tc_lst]
       try:
-        concurrent.futures.wait(th_list)
+        pool.shutdown()
       except KeyboardInterrupt:
         for th in th_list:
           th.cancel()
@@ -252,8 +254,12 @@ class RunCmd(BaseCmd):
       else:
         for tc in tc_lst:
           for i in range(tc.seed[0], tc.seed[1]+1):
+            if self.args.rand_seed:
+              seed = abs(hash(random.random()))
+            else:
+              seed = i
             tc_dup = copy.deepcopy(tc)
-            tc_dup.name = tc.name.replace("@seed", str(i))
-            tc_dup.seed = str(i)
+            tc_dup.name = tc.name.replace("@seed", str(seed))
+            tc_dup.seed = str(seed)
             tc_pool.append(tc_dup)
       self.do_simulate(sim_cmd, tc_pool)
