@@ -4,6 +4,7 @@ import sys
 import copy
 import shutil
 import random
+import threading
 import concurrent.futures
 from common.const import *
 from common.utils import Utils
@@ -12,13 +13,13 @@ from data.testcase import TestCase
 from data.simresult import SimResult
 from data.regress import Regress
 from common.tclparse import TestCaseListParser
-import concurrent.futures
 
 class RunCmd(BaseCmd):
   def __init__(self, args: tuple) -> None:
     super().__init__(args)
     self.tclparser = TestCaseListParser()
     self.regress = Regress()
+    self.sem = threading.Semaphore(1)
 
   def get_tc_lst(self) -> dict:
     module = self.args.module
@@ -61,7 +62,7 @@ class RunCmd(BaseCmd):
     module = self.args.module
     cmp_out = os.path.join(self.env["SIM_PATH"], module, "build")
     if self.args.simulator == "vcs":
-      build_lst_p = os.path.join(self.env["TB_PATH"], BUILD_LST_DIR)
+      build_lst_p = os.path.join(self.env["TB_PATH"], module, BUILD_LST_DIR)
       cmp_opts = self.args.cmp_opts
       for i, cmd in enumerate(cmd_list):
         cmd = cmd.replace("<dut_f>", os.path.join(build_lst_p, f"{module}_v.f"))
@@ -128,10 +129,10 @@ class RunCmd(BaseCmd):
     if os.path.exists(dir):
         Utils.warning(f"Unable to clean {dir}")
 
-  def print_icon(self, sim_stat: int) -> None:
+  def print_icon(self, status: any) -> None:
     curr_dir = os.path.dirname(os.path.realpath(__file__))
     icon_dir = os.path.join(os.path.dirname(curr_dir), "icon")
-    if sim_stat == SimStatus.PASS:
+    if status == SimStatus.PASS or status == CmdStatus.PASS:
       with open(os.path.join(icon_dir, "pass.txt"), mode="r", encoding="utf-8") as f:
         for line in f.readlines():
           Utils.print(f"[green bold]{line.strip()}[/green bold]")
@@ -152,21 +153,22 @@ class RunCmd(BaseCmd):
         break
     if status != CmdStatus.PASS and err_msg:
       Utils.error(err_msg, exit=False)
-    if not (status == CmdStatus.PASS and compile_only):
+    if not (status == CmdStatus.PASS and not compile_only):
       self.print_icon(status)
       Utils.info(f"output directory: {out}")
     if status != CmdStatus.PASS:
       sys.exit()
 
   def simulate_single_testcase(self, sim_cmd: str, tc: TestCase, is_regress: bool = False) -> tuple:
-    sim_item = self.gen_sim_item(sim_cmd, tc)
-    cmp_out = os.path.join(self.env["SIM_PATH"], self.args.module, "build")
-    sim_out = sim_item["out"]
-    if self.args.clean:
-      self.do_clean(sim_out)
-    self.create_dir(sim_out)
-    self.link_dir(cmp_out, sim_out)
-    os.chdir(sim_out)
+    with self.sem:
+      sim_item = self.gen_sim_item(sim_cmd, tc)
+      cmp_out = os.path.join(self.env["SIM_PATH"], self.args.module, "build")
+      sim_out = sim_item["out"]
+      if self.args.clean:
+        self.do_clean(sim_out)
+      self.create_dir(sim_out)
+      self.link_dir(cmp_out, sim_out)
+      os.chdir(sim_out)
     status, err_msg, consumption = self.run_cmd(sim_item["cmd"], is_regress, self.args.timeout)
     return tc, sim_out, status, err_msg, consumption
 
@@ -187,7 +189,7 @@ class RunCmd(BaseCmd):
             with open(os.path. join(sim_out, f"{tc.name}.log"), mode="r", encoding="utf-8") as f:
               content = f.readlines()
               for line in content:
-                if re.match("^(UVM_ERROR|UVM_FATAL|Error)"):
+                if re.match("^(UVM_ERROR|UVM_FATAL|Error)", line):
                   sim_stat = SimStatus.FAIL
                   err_msg = line.strip()
                   break
@@ -198,7 +200,7 @@ class RunCmd(BaseCmd):
             with open(os.path. join(sim_out, f"{tc.name}.log"), mode="r", encoding="utf-8") as f:
               content = f.readlines()
               for line in content:
-                if re.match("^Error"):
+                if re.match("^Error", line):
                   sim_stat = SimStatus.FAIL
                   err_msg = line.strip()
                   break

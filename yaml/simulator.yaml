@@ -1,8 +1,6 @@
 - vcs:
     compile:
       cmd:
-        - "source env.csh"
-        - "source eda_license"
         - "vcs -line
                -timescale=1ns/10ps
                -full64
@@ -14,6 +12,7 @@
                -diag macro_values
                -lca
                -kdb
+               -ntb_opts uvm
                +define+ASSERT_ON+COVER_ON+SVA_CHECKER_INTERFACE
                +neg_tchk
                +no_lock_time

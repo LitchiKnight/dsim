@@ -1,17 +1,16 @@
 - verdi:
     cmd:
-      "source /remote/raid74/verify_house/DV_common/tools/dsim/sim/license/eda_toolDF_tj2305a\n
-       verdi -2001
-             - sverilog
-             - uvmDebug
-             -ntb_opts uvm1.1d
-             -f <dut_f>
-             -f <c_f>
-             -f <tb_f>
-             -top <top> -autoalias
-             +UVM_TESTNAME=<testcase>
-             -ssf <testcase>.fsdb
-             +verilog2001ext+.v+.V
-             +libext+.v+.V+.sv+.svi
-             +systemverilogext+.sv+.svi
-             -nologo &"
+       "verdi -2001
+              - sverilog
+              - uvmDebug
+              -ntb_opts uvm1.1d
+              -f <dut_f>
+              -f <c_f>
+              -f <tb_f>
+              -top <top> -autoalias
+              +UVM_TESTNAME=<testcase>
+              -ssf <testcase>.fsdb
+              +verilog2001ext+.v+.V
+              +libext+.v+.V+.sv+.svi
+              +systemverilogext+.sv+.svi
+              -nologo"
