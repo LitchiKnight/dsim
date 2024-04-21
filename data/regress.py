@@ -21,15 +21,15 @@ class Regress:
         return sim_res
     return None
   
-  def set_tc_status(self, tc_name: str, status: CmdStatus) -> None:
+  def set_tc_status(self, tc_name: str, status: SimStatus) -> None:
     for sim_res in self.sim_res_list:
       if sim_res.name == tc_name:
         sim_res.status = status
-        if status == CmdStatus.PASS:
+        if status == SimStatus.PASS:
           self.pass_num += 1
-        elif status == CmdStatus.FAIL:
+        elif status == SimStatus.FAIL:
           self.fail_num += 1
-        elif status == CmdStatus.TIMEOUT:
+        elif status == SimStatus.TIMEOUT:
           self.timeout_num += 1
         else:
           self.exception_num += 1

@@ -128,10 +128,10 @@ class RunCmd(BaseCmd):
     if os.path.exists(dir):
         Utils.warning(f"Unable to clean {dir}")
 
-  def print_icon(self, status: int) -> None:
+  def print_icon(self, sim_stat: int) -> None:
     curr_dir = os.path.dirname(os.path.realpath(__file__))
     icon_dir = os.path.join(os.path.dirname(curr_dir), "icon")
-    if status == CmdStatus.PASS:
+    if sim_stat == SimStatus.PASS:
       with open(os.path.join(icon_dir, "pass.txt"), mode="r", encoding="utf-8") as f:
         for line in f.readlines():
           Utils.print(f"[green bold]{line.strip()}[/green bold]")
@@ -158,7 +158,7 @@ class RunCmd(BaseCmd):
     if status != CmdStatus.PASS:
       sys.exit()
 
-  def simulate_single_testcase(self, sim_cmd: str, tc: TestCase, is_regress: bool = False) -> None:
+  def simulate_single_testcase(self, sim_cmd: str, tc: TestCase, is_regress: bool = False) -> tuple:
     sim_item = self.gen_sim_item(sim_cmd, tc)
     cmp_out = os.path.join(self.env["SIM_PATH"], self.args.module, "build")
     sim_out = sim_item["out"]
@@ -167,34 +167,8 @@ class RunCmd(BaseCmd):
     self.create_dir(sim_out)
     self.link_dir(cmp_out, sim_out)
     os.chdir(sim_out)
-    status, err_msg, time = self.run_cmd(sim_item["cmd"], is_regress)
-    if status == CmdStatus.PASS:
-      with open(os.path. join(sim_out, f"{tc.name}.log"), mode="r", encoding="utf-8") as f:
-        content = f.readlines()
-        for line in content:
-          if re.match("^(UVM_ERROR|UVM_FATAL|Error)"):
-            status = CmdStatus.FAIL
-            err_msg = line.strip()
-            break
-          elif "UVM Report Summary" in line:
-            break
-    elif status == CmdStatus.FAIL:
-      with open(os.path. join(sim_out, f"{tc.name}.log"), mode="r", encoding="utf-8") as f:
-        content = f.readlines()
-        for line in content:
-          if re.match("^Error"):
-            err_msg = line.strip()
-            break
-        status = CmdStatus.INTERRUPT
-        err_msg = "program interrupted"
-    self.regress.set_tc_status(tc.name, status)
-    self.regress.set_tc_time(tc.name, str(time))
-    self.regress.set_tc_info(tc.name, err_msg)
-    if is_regress:
-      self.regress.print_curr_state(tc.name)
-    else:
-      self.print_icon(status)
-      Utils.info(f"output directory: {sim_out}")
+    status, err_msg, consumption = self.run_cmd(sim_item["cmd"], is_regress, self.args.timeout)
+    return tc, sim_out, status, err_msg, consumption
 
   def do_simulate(self, sim_cmd: str, tc_lst: list) -> None:
     self.regress.total = len(tc_lst)
@@ -203,17 +177,52 @@ class RunCmd(BaseCmd):
       sim_res.seed = tc.seed
       self.regress.add_sim_res(sim_res)
     random.shuffle(tc_lst)
-    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=self.args.thread) as pool:
       th_list = [pool.submit(self.simulate_single_testcase, sim_cmd, tc, (self.regress.total > 1)) for tc in tc_lst]
       try:
-        pool.shutdown()
+        # pool.shutdown()
+        for future in concurrent.futures.as_completed(th_list):
+          tc, sim_out, cmd_stat, err_msg, consumption = future.result()
+          if cmd_stat == CmdStatus.PASS:
+            with open(os.path. join(sim_out, f"{tc.name}.log"), mode="r", encoding="utf-8") as f:
+              content = f.readlines()
+              for line in content:
+                if re.match("^(UVM_ERROR|UVM_FATAL|Error)"):
+                  sim_stat = SimStatus.FAIL
+                  err_msg = line.strip()
+                  break
+                elif "UVM Report Summary" in line:
+                  sim_stat = SimStatus.PASS
+                  break
+          elif cmd_stat == CmdStatus.FAIL:
+            with open(os.path. join(sim_out, f"{tc.name}.log"), mode="r", encoding="utf-8") as f:
+              content = f.readlines()
+              for line in content:
+                if re.match("^Error"):
+                  sim_stat = SimStatus.FAIL
+                  err_msg = line.strip()
+                  break
+              sim_stat = SimStatus.EXCEPTION
+              err_msg = "program interrupted"
+          elif cmd_stat == CmdStatus.TIMEOUT:
+            sim_stat = SimStatus.TIMEOUT
+          else:
+            sim_stat = SimStatus.EXCEPTION
+          self.regress.set_tc_status(tc.name, sim_stat)
+          self.regress.set_tc_time(tc.name, str(consumption))
+          self.regress.set_tc_info(tc.name, err_msg)
+          if self.regress.total > 1:
+            self.regress.print_curr_state(tc.name)
+          else:
+            self.print_icon(sim_stat)
+            Utils.info(f"output directory: {sim_out}")
       except KeyboardInterrupt:
         for th in th_list:
           th.cancel()
         for ps in self.ps_list:
           if ps.pool() == None:
             self.killgroup(ps)
-        Utils.error("Interrupt simulation", exit=False)
+        Utils.error("interrupt simulation", exit=False)
       except Exception as e:
         Utils.error(e, exit=False)
     if (self.regress.total > 1):

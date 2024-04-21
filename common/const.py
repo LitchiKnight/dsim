@@ -20,6 +20,13 @@ class CmdStatus(Enum):
   INTERRUPT = 4
   TIMEOUT = 5
 
+class SimStatus(Enum):
+  NOT_START = 0
+  PASS = 1
+  FAIL = 2
+  TIMEOUT = 3
+  EXCEPTION = 4
+
 # regression report format
 TC_WIDTH = 50
 SEED_WIDTH = 20
