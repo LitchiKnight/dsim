@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import errno
 import signal
@@ -89,6 +90,7 @@ class BaseCmd:
     status = CmdStatus.NONE
     err_msg = ""
     start = time.time()
+    timer = None
     try:
       ps = subprocess.Popen(cmd,
                             shell=True,
@@ -98,7 +100,7 @@ class BaseCmd:
                             env=os.environ,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT)
-      timer = threading.Timer(time_limit, self.killgroup, [ps])
+      timer = threading.Timer(time_limit, self.killgroup, args=(ps))
       timer.start()
       self.ps_list.append(ps)
       while ps.poll() == None:
@@ -114,7 +116,7 @@ class BaseCmd:
       err_msg = "program interrputed"
       self.killgroup(ps)
     finally:
-      if timer.is_alive():
+      if timer and timer.is_alive():
         timer.cancel()
       else:
         status = CmdStatus.TIMEOUT

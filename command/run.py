@@ -52,10 +52,9 @@ class RunCmd(BaseCmd):
     return cmp_cmd_list, sim_cmd
     
   def set_env_var(self) -> None:
-    os.environ["RTL_PATH"] = self.env["RTL_PATH"]
-    os.environ["TB_PATH"]  = self.env["TB_PATH"]
-    os.environ["SIM_PATH"] = self.env["SIM_PATH"]
-    os.environ["UVM_HOME"] = self.env["UVM_HOME"]
+    for key in self.env.keys():
+      if self.env[key]:
+        os.environ[key] = self.env[key]
 
   def gen_cmp_item(self, cmd_list: str) -> str:
     cmp_item = {"cmd": [], "out": ""}
@@ -182,7 +181,6 @@ class RunCmd(BaseCmd):
     with concurrent.futures.ThreadPoolExecutor(max_workers=self.args.thread) as pool:
       th_list = [pool.submit(self.simulate_single_testcase, sim_cmd, tc, (self.regress.total > 1)) for tc in tc_lst]
       try:
-        # pool.shutdown()
         for future in concurrent.futures.as_completed(th_list):
           tc, sim_out, cmd_stat, err_msg, consumption = future.result()
           if cmd_stat == CmdStatus.PASS:
@@ -219,14 +217,15 @@ class RunCmd(BaseCmd):
             self.print_icon(sim_stat)
             Utils.info(f"output directory: {sim_out}")
       except KeyboardInterrupt:
-        for th in th_list:
-          th.cancel()
-        for ps in self.ps_list:
-          if ps.pool() == None:
-            self.killgroup(ps)
         Utils.error("interrupt simulation", exit=False)
       except Exception as e:
         Utils.error(e, exit=False)
+      finally:
+        for th in th_list:
+          th.cancel()
+        for ps in self.ps_list:
+          if ps.poll() == None:
+            self.killgroup(ps)        
     if (self.regress.total > 1):
       regr_dir = os.path.join(self.env["SIM_PATH"], self.args.module, "regress")
       report = self.regress.gen_regress_report()
