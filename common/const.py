@@ -20,16 +20,13 @@ class CmdStatus(Enum):
   INTERRUPT = 4
   TIMEOUT = 5
 
-class SimStatus(Enum):
-  NOT_START = 0
-  PASS = 1
-  FAIL = 2
-  TIMEOUT = 3
-  EXCEPTION = 4
-
 # regression report format
 TC_WIDTH = 50
 SEED_WIDTH = 20
 RESULT_WIDTH = 12
 TIME_WIDTH = 20
 INFO_WIDTH = 140
+
+# patterns
+SIM_ERR_PAT = "^(UVM_ERROR|UVM_FATAL|Error)"
+SIM_END_PAT = "UVM Report Summary"

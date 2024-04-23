@@ -80,6 +80,15 @@ class BaseCmd:
           link = item["src"]
           Utils.error(f"unable to link \'{link}\'")
   
+  def catch_err_on_the_fly(self, line: str) -> tuple:
+    catched = False
+    end = False
+    if re.match(SIM_ERR_PAT, line):
+      catched = True
+    if SIM_END_PAT in line:
+      end = True
+    return catched, end
+
   def killgroup(self, ps: subprocess.Popen):
     try:
         os.killpg(os.getpgid(ps.pid), signal.SIGKILL)
@@ -87,10 +96,13 @@ class BaseCmd:
         ps.kill()
 
   def run_cmd(self, cmd: str, mask: bool = False, time_limit: float = 300) -> tuple:
+    ps = None
+    timer = None
     status = CmdStatus.NONE
     err_msg = ""
     start = time.time()
-    timer = None
+    catched = False
+    chk_end = False
     try:
       ps = subprocess.Popen(cmd,
                             shell=True,
@@ -105,6 +117,10 @@ class BaseCmd:
       self.ps_list.append(ps)
       while ps.poll() == None:
         output = ps.stdout.readline()
+        if not (catched or chk_end):
+          catched, chk_end = self.catch_err_on_the_fly(output)
+          if catched:
+            err_msg = output.strip()
         if not mask and output:
           print(output, end="")
     except subprocess.CalledProcessError:
@@ -122,6 +138,10 @@ class BaseCmd:
         status = CmdStatus.TIMEOUT
         err_msg = "program timeout"
     if status == CmdStatus.NONE:
-      status = CmdStatus.PASS if ps.returncode == 0 else CmdStatus.FAIL
+      if ps.returncode == 0:
+        status = CmdStatus.PASS if not catched else CmdStatus.FAIL
+      else:
+        status = CmdStatus.INTERRUPT
+        err_msg = "program interrputed"
     consumption = time.time() - start
     return status, err_msg, consumption
