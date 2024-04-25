@@ -103,6 +103,7 @@ class BaseCmd:
     start = time.time()
     catched = False
     chk_end = False
+    stdout_fd = None
     try:
       ps = subprocess.Popen(cmd,
                             shell=True,
@@ -112,6 +113,7 @@ class BaseCmd:
                             env=os.environ,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT)
+      stdout_fd = ps.stdout.fileno()
       timer = threading.Timer(time_limit, self.killgroup, args=(ps))
       timer.start()
       self.ps_list.append(ps)
@@ -132,6 +134,7 @@ class BaseCmd:
       err_msg = "program interrputed"
       self.killgroup(ps)
     finally:
+      os.close(stdout_fd)
       if timer and timer.is_alive():
         timer.cancel()
       else:
