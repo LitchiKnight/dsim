@@ -122,6 +122,10 @@ class RunCmd(BaseCmd):
       Utils.error("Invalid argument combination: -co/--compile_only and -so/--simulate_only both enabled")
     if self.args.testcase and self.args.rand_seed:
       Utils.error("random seed only can be used at regression senario")
+    if self.args.timeout <= 0:
+      Utils.error("timeout value must be greater than zero")
+    if self.args.thread <= 0:
+      Utils.error("thread value must be greater than zero")
 
   def do_clean(self, dir: str) -> None:
     shutil.rmtree(dir, ignore_errors=True)

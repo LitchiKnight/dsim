@@ -95,7 +95,7 @@ class BaseCmd:
     except AttributeError: #killpg not available on windows
         ps.kill()
 
-  def run_cmd(self, cmd: str, mask: bool = False, time_limit: float = 300) -> tuple:
+  def run_cmd(self, cmd: str, mask: bool = False, time_limit: float = 0) -> tuple:
     ps = None
     timer = None
     status = CmdStatus.NONE
@@ -114,8 +114,9 @@ class BaseCmd:
                             stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT)
       stdout_fd = ps.stdout.fileno()
-      timer = threading.Timer(time_limit, self.killgroup, args=(ps))
-      timer.start()
+      if time_limit > 0:
+        timer = threading.Timer(time_limit, self.killgroup, args=(ps))
+        timer.start()
       self.ps_list.append(ps)
       while ps.poll() == None:
         output = ps.stdout.readline()
@@ -135,11 +136,12 @@ class BaseCmd:
       self.killgroup(ps)
     finally:
       os.close(stdout_fd)
-      if timer and timer.is_alive():
-        timer.cancel()
-      else:
-        status = CmdStatus.TIMEOUT
-        err_msg = "program timeout"
+      if time_limit > 0:
+        if timer and timer.is_alive():
+          timer.cancel()
+        else:
+          status = CmdStatus.TIMEOUT
+          err_msg = "program timeout"
     if status == CmdStatus.NONE:
       if ps.returncode == 0:
         status = CmdStatus.PASS if not catched else CmdStatus.FAIL
