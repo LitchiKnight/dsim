@@ -74,8 +74,6 @@ class RunCmd(BaseCmd):
         cmd = cmd.replace("<cmp_out>", self.cmp_dir)
         cmd = cmd.replace("<cmp_opts>", cmp_opts)
         cmd_list[i] = cmd.strip()
-    # cmp_item["cmd"] = cmd_list
-    # cmp_item["out"] = self.cmp_dir
     return cmd_list
   
   def replace_between(self, text, start, end, repl):
@@ -110,7 +108,6 @@ class RunCmd(BaseCmd):
   
   def gen_sim_item(self, cmd: str, tc: TestCase) -> str:
     sim_item = {"cmd": "", "out": ""}
-    # sim_out = os.path.join(self.out_dir, "result", tc.name)
     sim_out = os.path.join(self.res_dir, tc.name)
     if self.args.simulator == "vcs":
       sim_opts = f"+UVM_TESTNAME={tc.uvm_test} {self.merge_plusarg(tc)}"
@@ -150,7 +147,6 @@ class RunCmd(BaseCmd):
           Utils.print(f"[red bold]{line.strip()}[/red bold]")
 
   def do_compile(self, cmd_lst: list, compile_only: bool = False) -> None:
-    # out = cmp_item["out"]
     if self.args.clean:
       self.do_clean(self.cmp_dir)
     self.create_dir(self.cmp_dir)
@@ -170,7 +166,6 @@ class RunCmd(BaseCmd):
   def simulate_single_testcase(self, sim_cmd: str, tc: TestCase, is_regress: bool = False) -> tuple:
     with self.sem:
       sim_item = self.gen_sim_item(sim_cmd, tc)
-      # cmp_out = os.path.join(self.out_dir, "build")
       sim_out = sim_item["out"]
       if self.args.clean:
         self.do_clean(sim_out)
@@ -188,6 +183,13 @@ class RunCmd(BaseCmd):
         self.print_icon(status)
         Utils.info(f"output directory: {sim_out}")
 
+  def handle_statistic(self) -> None:
+    detail = self.stat.gen_stat_detail()
+    self.do_clean(self.stat_dir)
+    os.makedirs(self.stat_dir, exist_ok=True)
+    with open(os.path.join(self.stat_dir, "detail.log"), mode="w", encoding="utf-8") as f:
+      f.write(detail)
+
   def do_simulate(self, sim_cmd: str, tc_lst: list) -> None:
     self.stat.total = len(tc_lst)
     for tc in tc_lst:
@@ -195,6 +197,8 @@ class RunCmd(BaseCmd):
       sim_res.seed = tc.seed
       self.stat.add_sim_res(sim_res)
     random.shuffle(tc_lst)
+    if self.args.clean and self.stat.total > 1:
+      self.do_clean(self.res_dir)
     with concurrent.futures.ThreadPoolExecutor(max_workers=self.args.thread) as pool:
       try:
         th_list = [pool.submit(self.simulate_single_testcase, sim_cmd, tc, (self.stat.total > 1)) for tc in tc_lst]
@@ -210,12 +214,8 @@ class RunCmd(BaseCmd):
           if ps.poll() == None:
             self.killgroup(ps)
         pool.shutdown()
+    self.handle_statistic()
     if (self.stat.total > 1):
-      # stat_dir = os.path.join(self.out_dir, "statistic")
-      detail = self.stat.gen_stat_detail()
-      os.makedirs(self.stat_dir, exist_ok=True)
-      with open(os.path.join(self.stat_dir, "detail.log"), mode="w", encoding="utf-8") as f:
-        f.write(detail)
       self.stat.show()
       Utils.info(f"output directory: {self.stat_dir}")
 
