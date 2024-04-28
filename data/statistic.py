@@ -2,7 +2,7 @@ from common.utils import Utils
 from common.const import *
 from data.simresult import SimResult
 
-class Regress:
+class Statistic:
   def __init__(self) -> None:
     self.total = 0
     self.count = 0
@@ -56,10 +56,10 @@ class Regress:
     Utils.print(f"PROGRESS: {self.count}/{self.total}")
     Utils.print("--------------------------------------------------------------")
 
-  def print_regress_res(self) -> None:
+  def show(self) -> None:
     Utils.info(f"regression result: pass:{self.pass_num}, fail:{self.fail_num}, timeout: {self.timeout_num}, exception: {self.exception_num}")
 
-  def gen_regress_report(self) -> str:
+  def gen_stat_detail(self) -> str:
     report = ""
     total_width = TC_WIDTH+SEED_WIDTH+RESULT_WIDTH+TIME_WIDTH+INFO_WIDTH+6
     divider = "-"*total_width+"\n"

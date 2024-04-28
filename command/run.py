@@ -11,15 +11,19 @@ from common.utils import Utils
 from command.base import BaseCmd
 from data.testcase import TestCase
 from data.simresult import SimResult
-from data.regress import Regress
+from data.statistic import Statistic
 from common.tclparse import TestCaseListParser
 
 class RunCmd(BaseCmd):
   def __init__(self, args: tuple) -> None:
     super().__init__(args)
     self.tclparser = TestCaseListParser()
-    self.regress = Regress()
+    self.stat = Statistic()
     self.sem = threading.Semaphore(1)
+    self.cmp_dir = os.path.join(self.env["SIM_PATH"], self.args.module, "compile")
+    self.res_dir = os.path.join(self.env["SIM_PATH"], self.args.module, "result")
+    self.stat_dir = os.path.join(self.env["SIM_PATH"], self.args.module, "statistic")
+    self.latest_dir = os.path.join(self.env["SIM_PATH"], self.args.module, "latest")
 
   def get_tc_lst(self) -> dict:
     module = self.args.module
@@ -56,10 +60,10 @@ class RunCmd(BaseCmd):
       if self.env[key]:
         os.environ[key] = self.env[key]
 
-  def gen_cmp_item(self, cmd_list: str) -> str:
-    cmp_item = {"cmd": [], "out": ""}
+  def complete_cmp_cmd(self, cmd_list: list) -> list:
+    # cmp_item = {"cmd": [], "out": ""}
     module = self.args.module
-    cmp_out = os.path.join(self.env["SIM_PATH"], module, "build")
+    # cmp_out = os.path.join(self.out_dir, "build")
     if self.args.simulator == "vcs":
       build_lst_p = os.path.join(self.env["TB_PATH"], module, BUILD_LST_DIR)
       cmp_opts = self.args.cmp_opts
@@ -67,12 +71,12 @@ class RunCmd(BaseCmd):
         cmd = cmd.replace("<dut_f>", os.path.join(build_lst_p, f"{module}_v.f"))
         cmd = cmd.replace("<c_f>", os.path.join(build_lst_p, f"{module}_c.f"))
         cmd = cmd.replace("<tb_f>", os.path.join(build_lst_p, f"{module}_sv.f"))
-        cmd = cmd.replace("<cmp_out>", cmp_out)
+        cmd = cmd.replace("<cmp_out>", self.cmp_dir)
         cmd = cmd.replace("<cmp_opts>", cmp_opts)
         cmd_list[i] = cmd.strip()
-    cmp_item["cmd"] = cmd_list
-    cmp_item["out"] = cmp_out
-    return cmp_item
+    # cmp_item["cmd"] = cmd_list
+    # cmp_item["out"] = self.cmp_dir
+    return cmd_list
   
   def replace_between(self, text, start, end, repl):
     pattern = re.compile(re.escape(start) + "(.*?)" + re.escape(end))
@@ -106,7 +110,8 @@ class RunCmd(BaseCmd):
   
   def gen_sim_item(self, cmd: str, tc: TestCase) -> str:
     sim_item = {"cmd": "", "out": ""}
-    sim_out = os.path.join(self.env["SIM_PATH"], self.args.module, tc.name)
+    # sim_out = os.path.join(self.out_dir, "result", tc.name)
+    sim_out = os.path.join(self.res_dir, tc.name)
     if self.args.simulator == "vcs":
       sim_opts = f"+UVM_TESTNAME={tc.uvm_test} {self.merge_plusarg(tc)}"
       cmd = cmd.replace("<sim_opts>", sim_opts)
@@ -140,13 +145,13 @@ class RunCmd(BaseCmd):
         for line in f.readlines():
           Utils.print(f"[red bold]{line.strip()}[/red bold]")
 
-  def do_compile(self, cmp_item: dict, compile_only: bool = False) -> None:
-    out = cmp_item["out"]
+  def do_compile(self, cmd_lst: list, compile_only: bool = False) -> None:
+    # out = cmp_item["out"]
     if self.args.clean:
-      self.do_clean(out)
-    self.create_dir(out)
-    os.chdir(out)
-    for cmd in cmp_item["cmd"]:
+      self.do_clean(self.cmp_dir)
+    self.create_dir(self.cmp_dir)
+    os.chdir(self.cmp_dir)
+    for cmd in cmd_lst:
       status, err_msg, _ = self.run_cmd(cmd)
       if status != CmdStatus.PASS:
         break
@@ -154,41 +159,41 @@ class RunCmd(BaseCmd):
       Utils.error(err_msg, exit=False)
     if not (status == CmdStatus.PASS and not compile_only):
       self.print_icon(status)
-      Utils.info(f"output directory: {out}")
+      Utils.info(f"output directory: {self.cmp_dir}")
     if status != CmdStatus.PASS:
       sys.exit()
 
   def simulate_single_testcase(self, sim_cmd: str, tc: TestCase, is_regress: bool = False) -> tuple:
     with self.sem:
       sim_item = self.gen_sim_item(sim_cmd, tc)
-      cmp_out = os.path.join(self.env["SIM_PATH"], self.args.module, "build")
+      # cmp_out = os.path.join(self.out_dir, "build")
       sim_out = sim_item["out"]
       if self.args.clean:
         self.do_clean(sim_out)
       self.create_dir(sim_out)
-      self.link_dir(cmp_out, sim_out)
+      self.link_dir(self.cmp_dir, sim_out)
       os.chdir(sim_out)
     status, err_msg, consumption = self.run_cmd(sim_item["cmd"], is_regress, self.args.timeout)
     with self.sem:
-      self.regress.set_tc_status(tc.name, status)
-      self.regress.set_tc_time(tc.name, str(consumption))
-      self.regress.set_tc_info(tc.name, err_msg)
-      if self.regress.total > 1:
-        self.regress.print_curr_state(tc.name)
+      self.stat.set_tc_status(tc.name, status)
+      self.stat.set_tc_time(tc.name, str(consumption))
+      self.stat.set_tc_info(tc.name, err_msg)
+      if self.stat.total > 1:
+        self.stat.print_curr_state(tc.name)
       else:
         self.print_icon(status)
         Utils.info(f"output directory: {sim_out}")
 
   def do_simulate(self, sim_cmd: str, tc_lst: list) -> None:
-    self.regress.total = len(tc_lst)
+    self.stat.total = len(tc_lst)
     for tc in tc_lst:
       sim_res = SimResult(tc.name)
       sim_res.seed = tc.seed
-      self.regress.add_sim_res(sim_res)
+      self.stat.add_sim_res(sim_res)
     random.shuffle(tc_lst)
     with concurrent.futures.ThreadPoolExecutor(max_workers=self.args.thread) as pool:
       try:
-        th_list = [pool.submit(self.simulate_single_testcase, sim_cmd, tc, (self.regress.total > 1)) for tc in tc_lst]
+        th_list = [pool.submit(self.simulate_single_testcase, sim_cmd, tc, (self.stat.total > 1)) for tc in tc_lst]
         concurrent.futures.wait(th_list)
       except KeyboardInterrupt:
         Utils.error("interrupt simulation", exit=False)
@@ -201,14 +206,14 @@ class RunCmd(BaseCmd):
           if ps.poll() == None:
             self.killgroup(ps)
         pool.shutdown()
-    if (self.regress.total > 1):
-      regr_dir = os.path.join(self.env["SIM_PATH"], self.args.module, "regress")
-      report = self.regress.gen_regress_report()
-      os.makedirs(regr_dir, exist_ok=True)
-      with open(os.path.join(regr_dir, "report.f"), mode="w", encoding="utf-8") as f:
-        f.write(report)
-      self.regress.print_regress_res()
-      Utils.info(f"output directory: {regr_dir}")
+    if (self.stat.total > 1):
+      # stat_dir = os.path.join(self.out_dir, "statistic")
+      detail = self.stat.gen_stat_detail()
+      os.makedirs(self.stat_dir, exist_ok=True)
+      with open(os.path.join(self.stat_dir, "detail.log"), mode="w", encoding="utf-8") as f:
+        f.write(detail)
+      self.stat.show()
+      Utils.info(f"output directory: {self.stat_dir}")
 
   @BaseCmd.check_env
   def run(self) -> None:
@@ -220,8 +225,8 @@ class RunCmd(BaseCmd):
     self.set_env_var()
 
     if not self.args.simulate_only:
-      cmp_item = self.gen_cmp_item(cmp_cmd)
-      self.do_compile(cmp_item, self.args.compile_only)
+      cmp_cmd_lst = self.complete_cmp_cmd(cmp_cmd)
+      self.do_compile(cmp_cmd_lst, self.args.compile_only)
     
     if not self.args.compile_only:
       tc_dup = None
